@@ -1,0 +1,9 @@
+## Data directory
+data_dir=data
+pp_data_dir=data/PP
+
+## DEM SRTM HGT files
+hgt_dir=data/SRTMGL3.003
+
+## MET files
+met_dir=data/MET

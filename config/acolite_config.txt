@@ -1,0 +1,3 @@
+## ACOLITE
+acolite_defaults=config/acolite_defaults.txt
+acolite_l2w_labels=config/acolite_l2w_labels.txt
