@@ -24,6 +24,8 @@
 ##                2018-06-07 (QV) added check for rhot < rray in DSF
 ##                2018-07-09 (QV) updated rho_rc 'new' file generation
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-07-24 (QV) added atmospheric correction parameters to metadata (for fixed DSF), renamed t_gas tag to tt_gas, changed flags type to int32
+##                                added support for tiled DSF on merged scenes
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -108,6 +110,9 @@ def acolite_ac(bundle, odir,
                 gains_s2a_msi=[1,1,1,1,1,1,1,1,1,1,1,1,1],
                 gains_s2b_msi=[1,1,1,1,1,1,1,1,1,1,1,1,1],
 
+                ## max wavelength to check for l2_negatives
+                neg_wave = 900, 
+
                 ## NetCDF outputs
                 l1r_nc_compression = False,
                 l1r_nc_override = True,
@@ -127,7 +132,8 @@ def acolite_ac(bundle, odir,
                 ret_rdark=False):
 
     import acolite as pp
-    from numpy import nanmean, nanpercentile, isfinite, count_nonzero, zeros, ceil, nan, linspace, min, max, where,float64, float32
+    from numpy import nanmean, nanpercentile, isfinite, count_nonzero, zeros, ceil, nan, linspace, min, max, where,float64, float32, int32
+    from netCDF4 import Dataset
     from scipy.ndimage import zoom
     import time, os
     import dateutil.parser
@@ -354,7 +360,6 @@ def acolite_ac(bundle, odir,
                     xrange = grids['{}'.format(s2_target_res)]['xrange']
                     yrange = grids['{}'.format(s2_target_res)]['yrange']
             else:
-                #p, (xrange,yrange), proj4_string = pp.sentinel.geo.get_projection(grmeta)
                 p, (grids), proj4_string = pp.sentinel.geo.get_projection(grmeta)
                 xrange = grids['{}'.format(s2_target_res)]['xrange']
                 yrange = grids['{}'.format(s2_target_res)]['yrange']
@@ -478,7 +483,6 @@ def acolite_ac(bundle, odir,
         l1r_ncfile_pan_ms = '{}/{}_L1R_pan_ms.nc'.format(odir,oname)
         l2r_ncfile = '{}/{}_L2R.nc'.format(odir,oname)
 
-#        ncfile = '{}/{}_L2R.nc'.format(odir,oname)
         ds_plot = '{}/{}_dark_spectrum.png'.format(odir,oname)
         dp_map = '{}/{}_dark_pixels.png'.format(odir,oname)
 
@@ -504,12 +508,14 @@ def acolite_ac(bundle, odir,
         attributes["l1r_file"] =  l1r_ncfile
         attributes["l2r_file"] =  l2r_ncfile
         attributes["file_type"] =  'Level 2 Reflectance Product'
+
         ## add gas transmittance information
         if gas_transmittance is True:
             attributes["uoz"] = uoz
             attributes["uwv"] = uwv
             for band in tt_gas.keys():
-                attributes['{}_t_gas'.format(band)] = tt_gas[band]
+                attributes['{}_tt_gas'.format(band)] = tt_gas[band]
+
         ## add ancillary data information
         if pressure is not None: attributes["pressure"] = pressure
         if ancillary_data is True:
@@ -519,6 +525,7 @@ def acolite_ac(bundle, odir,
                     if 'interp' in pc_anc[k].keys(): attributes['anc_{}'.format(k)] = pc_anc[k]['interp']
                 else:
                     attributes['anc_{}'.format(k)] = pc_anc[k]
+
         ## add sky correction information
         if sky_correction:
             for band in rsky.keys():
@@ -555,9 +562,9 @@ def acolite_ac(bundle, odir,
 
             ## scene dimensions are X,Y
             if data_type == 'NetCDF':
-                print('NetCDF input')
-                #print(metadata)
-                global_dims = None
+                nc = Dataset(bundle)
+                global_dims=(nc.dimensions['y'].size, nc.dimensions['x'].size)
+                nc.close()
             else:
                 if sensor_family == 'Landsat': 
                     dims = metadata['DIMS']
@@ -566,10 +573,17 @@ def acolite_ac(bundle, odir,
 
                 ## python dims are Y,X
                 global_dims = (dims[1], dims[0])
-                #global_dims = (dims[0], dims[1])
 
-            #print(dims)
-            #print(global_dims)
+            ## python dims are Y,X
+            tile_dims = (dsf_tile_dims[1],dsf_tile_dims[0])
+
+            ## number of tiles
+            tiles = [int(ceil(global_dims[0]/tile_dims[0])),int(ceil(global_dims[1]/tile_dims[1]))]
+            ntiles = tiles[0]*tiles[1]
+
+            if (dsf_path_reflectance == 'tiled') & ((tiles[0] < 2) | (tiles[1] < 2)):
+                print('Scene too small to perform tiled DSF. Using fixed subscene DSF.')
+                dsf_path_reflectance = 'fixed'
 
             #########################
             ## do tiled DSF AOT retrieval
@@ -581,15 +595,6 @@ def acolite_ac(bundle, odir,
                 ## this opens each band once and then does the tiling
                 ## is about 10x faster than processing per tile (at least for the 6x6 km tiles)
 
-                ## python dims are Y,X
-                tile_dims = (dsf_tile_dims[1],dsf_tile_dims[0])
-
-                ## number of tiles
-                tiles = [int(ceil(global_dims[0]/tile_dims[0])),int(ceil(global_dims[1]/tile_dims[1]))]
-                
-                ntiles = tiles[0]*tiles[1]
-                
-                #print(tiles)
                 t0 = time.time()
                 print('Reading TOA data and performing tiling')
 
@@ -610,10 +615,8 @@ def acolite_ac(bundle, odir,
                     ## read data and make full tile NC file
                     print('Reading band {}'.format(band_name))
                     if (l1r_read_nc) & (parname in l1r_datasets):
-                        #if parname not in datasets: continue
                         print('Reading band {} from L1R NetCDF: {}'.format(band_name,l1r_ncfile))
                         band_full = pp.shared.nc_data(l1r_ncfile, parname)
-                        ## check if this is full scene!
                     else:
                         print('Reading band {} from input bundle: {}'.format(band_name,bundle))
                         if data_type == 'NetCDF':
@@ -897,7 +900,15 @@ def acolite_ac(bundle, odir,
                 attributes['ac_rmsd']=sel_rmsd
                 print('model:{} band:{} aot={:.3f}'.format(attributes['ac_model_char'],attributes['ac_band'],attributes['ac_aot550']))
 
-                
+                for band in ratm_s.keys():
+                     attributes['{}_ratm'.format(band)] = ratm_s[band]
+                     attributes['{}_rorayl'.format(band)] = rorayl_s[band]
+                     attributes['{}_dtotr'.format(band)] = dtotr_s[band]
+                     attributes['{}_utotr'.format(band)] = utotr_s[band]
+                     attributes['{}_dtott'.format(band)] = dtott_s[band]
+                     attributes['{}_utott'.format(band)] = utott_s[band]
+                     attributes['{}_astot'.format(band)] = astot_s[band]
+
                 if dsf_plot_dark_spectrum: pp.plotting.plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, ratm_s, rorayl_s, rdark, rdark_sel, dsf_spectrum_option, dark_idx, tau550,sel_model_lut_meta)
 
                 ## from now on read the l1r NCDF
@@ -1169,6 +1180,15 @@ def acolite_ac(bundle, odir,
                         ### with fixed path reflectance
                         if dsf_path_reflectance == 'fixed':
                             rhos_data = pp.rtoa_to_rhos(band_data, ratm_s[btag], utott_s[btag], dtott_s[btag], astot_s[btag], tt_gas = 1)
+
+                            ## add atmosphere parameters to attributes
+                            ds_att['ratm'] = ratm_s[btag]
+                            ds_att['rorayl'] = rorayl_s[btag]
+                            ds_att['dtotr'] = dtotr_s[btag]
+                            ds_att['utotr'] = utotr_s[btag]
+                            ds_att['dtott'] = dtott_s[btag]
+                            ds_att['utott'] = utott_s[btag]
+                            ds_att['astot'] = astot_s[btag]
                     ## end DSF
                     ########################
                     
@@ -1198,8 +1218,9 @@ def acolite_ac(bundle, odir,
                             
                 ## track rhos negatives
                 if l2_negatives is None:
-                    l2_negatives = rhos_data.astype(int)*0
-                l2_negatives[rhos_data < 0] = 2**1
+                    l2_negatives = (rhos_data*0).astype(int32)
+                if wave < neg_wave:
+                    l2_negatives[rhos_data < 0] = 2**1
 
                 rhos_data = None                 
                 band_data = None
