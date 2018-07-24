@@ -16,6 +16,7 @@
 ##                     2018-07-18 (QV) changed acolite import name
 ##                     2018-07-24 (QV) fixed problem with shortest blue band after chl_oc3 computation
 ##                                     added l2w_mask_negative_rhow keyword
+##                                     added FAIT
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True,
@@ -28,7 +29,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
     from acolite.acolite import l2w_required, acolite_l2w_qaa
     from acolite.output import nc_write
 
-    from numpy import pi, nan, where, log10, isfinite, power
+    from numpy import pi, nan, where, log10, isfinite, power, dstack, int32
 
     if not os.path.exists(inputfile):
         print('File {} not found.'.format(inputfile))
@@ -71,9 +72,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
             if ("l2_negatives" in l2r_datasets) & (l2w_mask_negative_rhow):
                 l2_flags = nc_data(inputfile, "l2_negatives")
             if l2_flags is None:
-                l2_flags = mask.astype(int)*(2**0)
+                l2_flags = mask.astype(int32)*(2**0)
             else:
-                l2_flags += mask.astype(int)*(2**0)
+                l2_flags += mask.astype(int32)*(2**0)
             mask = l2_flags != 0
 
         ## make outputfile
@@ -762,7 +763,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
             #################################
             ## FAI
-            if par_name[0:3] == 'fai':
+            if (par_name == 'fai') | (par_name == 'fai_rhot'):
                 par_exists = True
                 mask_data = False
                 par_split = par_name.split('_')
@@ -783,8 +784,6 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     required_datasets.append(selds)
                     req_waves_selected.append(selwave)
                 par_attributes['waves']=req_waves_selected
-                print(req_waves_selected)
-                print(required_datasets)
 
                 if len(required_datasets) == len(req_waves): 
                     req = l2w_required(inputfile, required_datasets, data_read, att_read)                            
@@ -799,6 +798,78 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         nir_prime = None
             ##### END FAI
             #################################
+
+            #################################
+            ## FAIT
+            if par_name == 'fait':
+                import skimage
+                par_exists = True
+                mask_data = False
+                par_split = par_name.split('_')
+                par_attributes = {'algorithm':'Floating Algal Index Turbid Waters, Dogliotti et al. 2018', 'dataset':'rhos'}
+                req_waves,req_waves_selected = [],[]
+                ds_waves = [w for w in rhos_waves] 
+
+                fait_fai_threshold = 0.
+                fait_red_threshold = 0.08
+                fait_rgb_limit = 0.12
+                fait_L_limit = 100
+
+                if gatts['sensor'] == 'L8_OLI':
+                    fait_a_threshold = 5
+                elif gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
+                    fait_a_threshold = 0
+                else:
+                    print('Parameter {} not configured for {}.'.format(par_name,gatts['sensor']))
+                    continue
+
+                fai_diff = [10, 10, 10, 30, 80]
+                req_waves = [490, 560, 660, 865, 1610]                
+                for i, reqw in enumerate(req_waves):
+                    widx,selwave = closest_idx(ds_waves, reqw)
+                    if abs(float(selwave)-float(reqw)) > fai_diff[i]: continue
+                    selds='{}_{}'.format(par_attributes['dataset'],selwave)
+                    required_datasets.append(selds)
+                    req_waves_selected.append(selwave)
+                par_attributes['waves']=req_waves_selected
+
+                if len(required_datasets) == len(req_waves): 
+                    req = l2w_required(inputfile, required_datasets, data_read, att_read)                            
+                    ## compute dataset
+                    if req:
+                        par_data = None
+                        fai_sc = (float(par_attributes['waves'][3])-float(par_attributes['waves'][2]))/\
+                                 (float(par_attributes['waves'][4])-float(par_attributes['waves'][2]))
+                        nir_prime = data_read[required_datasets[2]] + \
+                                   (data_read[required_datasets[4]]-data_read[required_datasets[2]]) * fai_sc
+                        par_data = data_read[required_datasets[3]] - nir_prime
+                        nir_prime = None
+
+                        ## make lab coordinates
+                        for i in range(3):
+                            data = datascl(data_read[required_datasets[i]], dmin=0, dmax=fait_rgb_limit)
+                            if i == 0:
+                                rgb = data
+                            else:
+                                rgb = dstack((rgb,data))
+                            data = None
+                        lab = skimage.color.rgb2lab(rgb)
+                        rgb = None
+
+                        ## check FAI > 0
+                        par_data[par_data >= fait_fai_threshold] = 1.0
+                        par_data[par_data < fait_fai_threshold] = 0.0
+
+                        ## check turbidity based on red threshold
+                        par_data[data_read[required_datasets[2]] > fait_red_threshold] = 0.0
+
+                        ## check L and a
+                        par_data[lab[:,:,0] >= fait_L_limit] = 0.0
+                        par_data[lab[:,:,1] >= fait_a_threshold] = 0.0
+                        lab = None
+            ##### END FAIT
+            #################################
+
 
             #################################
             ## NDVI
