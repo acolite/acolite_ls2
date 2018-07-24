@@ -15,9 +15,10 @@
 ##                     2018-06-07 (QV) added l2_flags output and l2w water masking option, added OLH, changed S2A wavelengths for T
 ##                     2018-07-18 (QV) changed acolite import name
 ##                     2018-07-24 (QV) fixed problem with shortest blue band after chl_oc3 computation
+##                                     added l2w_mask_negative_rhow keyword
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
-                l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True,
+                l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True,
                 nc_compression=True, chunking=True):
     import os
     import datetime, time
@@ -67,7 +68,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
             ## make l2_flags dataset
             l2_flags = None
-            if "l2_negatives" in l2r_datasets:
+            if ("l2_negatives" in l2r_datasets) & (l2w_mask_negative_rhow):
                 l2_flags = nc_data(inputfile, "l2_negatives")
             if l2_flags is None:
                 l2_flags = mask.astype(int)*(2**0)

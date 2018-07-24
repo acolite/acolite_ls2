@@ -8,6 +8,7 @@
 ##                     2018-06-06 (QV) added xy outputs, rhorc check
 ##                     2018-06-15 (QV) fixed check for olh and rhorc when parameters=None
 ##                     2018-07-18 (QV) changed acolite import name
+##                     2018-07-24 (QV) added l2w_mask_negative_rhow
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -240,6 +241,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                           l2w_mask_wave=float(setu['l2w_mask_wave']),
                                           l2w_mask_threshold=float(setu['l2w_mask_threshold']),
                                           l2w_mask_water_parameters=setu['l2w_mask_water_parameters'],
+                                          l2w_mask_negative_rhow=setu['l2w_mask_negative_rhow'],
                                           nc_compression=setu['l2w_nc_compression'],)
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret

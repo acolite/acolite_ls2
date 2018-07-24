@@ -7,6 +7,7 @@ l2w_mask=True
 l2w_mask_wave=1600
 l2w_mask_threshold=0.0215
 l2w_mask_water_parameters=True
+l2w_mask_negative_rhow=True
 
 ## atmospheric correction settings
 aerosol_correction=dark_spectrum
