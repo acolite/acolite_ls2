@@ -477,7 +477,6 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 else:
                     ## test if required datasets are present
                     if len(required_datasets) > 0: 
-                        print(required_datasets)
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         
                         ## max blue
