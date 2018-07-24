@@ -14,6 +14,7 @@
 ##                     2018-06-06 (QV) added xy outputs
 ##                     2018-06-07 (QV) added l2_flags output and l2w water masking option, added OLH, changed S2A wavelengths for T
 ##                     2018-07-18 (QV) changed acolite import name
+##                     2018-07-24 (QV) fixed problem with shortest blue band after chl_oc3 computation
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True,
@@ -476,13 +477,14 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 else:
                     ## test if required datasets are present
                     if len(required_datasets) > 0: 
+                        print(required_datasets)
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         
                         ## max blue
                         for i,wv in enumerate(blue_wave_sel):
                             cur_tag = 'rhos_{}'.format(wv)
                             if i == 0:
-                                blue_rhow = data_read[cur_tag]
+                                blue_rhow = data_read[cur_tag]*1.0
                             else:
                                 sub = where((data_read[cur_tag]>blue_rhow) & isfinite(data_read[cur_tag]))
                                 if len(sub[0]) > 0:
@@ -492,7 +494,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         for i,wv in enumerate(green_wave_sel):
                             cur_tag = 'rhos_{}'.format(wv)
                             if i == 0:
-                                green_rhow = data_read[cur_tag]
+                                green_rhow = data_read[cur_tag]*1.0
                             else:
                                 sub = where((data_read[cur_tag]>green_rhow) & isfinite(data_read[cur_tag]))
                                 if len(sub[0]) > 0:
@@ -851,7 +853,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         ## compute dataset
                         if req:
                             par_data = None
-                            par_data = data_read[required_datasets[0]]
+                            par_data = data_read[required_datasets[0]] * 1.0
                             for tag in att_read[required_datasets[0]]:
                                 par_attributes[tag] = att_read[required_datasets[0]][tag]
             ##### END rhow
