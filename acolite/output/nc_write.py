@@ -13,6 +13,7 @@
 ##                QV 2018-03-14 added nan writing for new datasets with offset
 ##                QV 2018-04-17 changed to float32 for float datasets, added Rrs to auto_grouping
 ##                QV 2018-07-18 changed datatype for writing, to avoid int overflow
+##                QV 2018-07-24 changed global attributes
 
 def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
                  new=False, attributes=None, keep=True, offset=None, replace_nan=False, metadata=None, dataset_attributes=None, double=False,
@@ -43,9 +44,9 @@ def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
         nc = Dataset(ncfile, 'w', format=format)
 
         ## set global attributes
-        setattr(nc, 'generated_by', 'RBINS/OD Nature' )
+        setattr(nc, 'generated_by', 'ACOLITE' )
         setattr(nc, 'generated_on',time.strftime('%Y-%m-%d %H:%M:%S %Z'))
-        setattr(nc, 'project', 'PONDER' )
+        #setattr(nc, 'project', 'PONDER' )
         setattr(nc, 'contact', 'Quinten Vanhellemont' )
 
         ## set beam dataformat global attributes
