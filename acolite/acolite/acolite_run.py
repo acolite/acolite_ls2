@@ -9,6 +9,7 @@
 ##                     2018-06-15 (QV) fixed check for olh and rhorc when parameters=None
 ##                     2018-07-18 (QV) changed acolite import name
 ##                     2018-07-24 (QV) added l2w_mask_negative_rhow
+##                     2018-07-25 (QV) added check for empty returns by acolite_ac
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -19,7 +20,6 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
     print('Launching ACOLITE Python!')
     setu = acolite.acolite_settings(settings)
-    #print(setu)
 
     ## set variables from settings file if not directly provided by user
     if (inputfile is not None): setu['inputfile'] = inputfile
@@ -27,8 +27,6 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     if (merge_tiles is not None): setu['merge_tiles'] = merge_tiles 
     if (limit is not None): setu['limit'] = limit
 
-    #if 'ancillary' not in setu:
-    #    setu['ancillary'] = ancillary
     if 'l2w_parameters' not in setu:
         setu['l2w_parameters'] = None
 
@@ -197,15 +195,14 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         l2r_files+=ret
 
         ## output GeoTIFF
-        if setu['l2r_export_geotiff']:
+        if (setu['l2r_export_geotiff']) & (len(ret) > 0):
             if type(ret) is not list: ret = [ret]
             for f in ret: nc_to_geotiff(f)
 
         ## map RGB
-        if setu['rgb_rhot'] or setu['rgb_rhos']:
+        if (setu['rgb_rhot'] or setu['rgb_rhos'])  & (len(ret) > 0):
             print('Mapping RGB from {}'.format(ret[0]))
             for retf in ret: 
-                #acolite.acolite_rgb(ret[0], setu['output'], map_rhot=setu['rgb_rhot'], map_rhos=setu['rgb_rhos'], map_title=setu['map_title'])
                 acolite.acolite_map(ret[0], setu['output'], rgb_rhot=setu['rgb_rhot'], rgb_rhos=setu['rgb_rhos'], 
                                          map_title=setu['map_title'], 
                                          map_colorbar=setu['map_colorbar'], 

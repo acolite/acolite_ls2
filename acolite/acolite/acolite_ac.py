@@ -27,6 +27,7 @@
 ##                2018-07-24 (QV) added atmospheric correction parameters to metadata (for fixed DSF), renamed t_gas tag to tt_gas, changed flags type to int32
 ##                                added support for tiled DSF on merged scenes
 ##                2018-07-25 (QV) added orange band support for tiled DSF
+##                                added check for ROI limits just at the edge of the scene
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -363,7 +364,7 @@ def acolite_ac(bundle, odir,
                 yrange = grids['{}'.format(s2_target_res)]['yrange']
                 grids = None
                 sub = None
-
+            
             ## make output names
             if scene_name:
                 oname = grmeta['TILE_ID']
@@ -385,11 +386,17 @@ def acolite_ac(bundle, odir,
 
             metadata['AZI']=abs(azi)
             metadata['ISODATE']=grmeta['SENSING_TIME']
-        
+
+        ## exit if crop is too small
+        if sub is not None:
+            if (sub[2] <= 0) | (sub[3] <= 0):
+                print('Insufficient coverange of region {} in scene {}'.format(limit,bundle))
+                continue
+
         ## exit if crop is out of scene
         if (out_of_scene):
-             print('Region {} out of scene {}'.format(limit,bundle))
-             continue
+            print('Region {} out of scene {}'.format(limit,bundle))
+            continue
 
         ## exit if THS is out of scope LUT
         metadata['THS-true'] = metadata['THS']
