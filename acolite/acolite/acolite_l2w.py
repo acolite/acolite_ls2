@@ -17,6 +17,7 @@
 ##                     2018-07-24 (QV) fixed problem with shortest blue band after chl_oc3 computation
 ##                                     added l2w_mask_negative_rhow keyword
 ##                                     added FAIT
+##                     2018-07-25 (QV) added FAIT external config
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True,
@@ -28,6 +29,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                coef_hue_angle,coef_nechad_hs, coef_chl_re_gons, coef_nechad2016, coef_nechad_spm_hs, coef_chl_oc
     from acolite.acolite import l2w_required, acolite_l2w_qaa
     from acolite.output import nc_write
+    import acolite as ac
 
     from numpy import pi, nan, where, log10, isfinite, power, dstack, int32
 
@@ -810,18 +812,28 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves] 
 
-                fait_fai_threshold = 0.
-                fait_red_threshold = 0.08
-                fait_rgb_limit = 0.12
-                fait_L_limit = 100
+                ## read FAIT config
+                fait_cfg = ac.shared.import_config('{}/Shared/dogliotti_fait.cfg'.format(ac.config['pp_data_dir']))
+                print(fait_cfg)
+                fait_fai_threshold = float(fait_cfg['fait_fai_threshold'])
+                fait_red_threshold = float(fait_cfg['fait_red_threshold'])
+                fait_rgb_limit = float(fait_cfg['fait_rgb_limit'])
+                fait_L_limit = float(fait_cfg['fait_L_limit'])
 
                 if gatts['sensor'] == 'L8_OLI':
-                    fait_a_threshold = 5
+                    fait_a_threshold = float(fait_cfg['fait_a_threshold_OLI'])
                 elif gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
-                    fait_a_threshold = 0
+                    fait_a_threshold = float(fait_cfg['fait_a_threshold_MSI'])
                 else:
                     print('Parameter {} not configured for {}.'.format(par_name,gatts['sensor']))
                     continue
+
+                ## add to parameter attributes
+                par_attributes['fai_threshold'] = fait_fai_threshold
+                par_attributes['red_threshold'] = fait_red_threshold
+                par_attributes['rgb_limit'] = fait_rgb_limit
+                par_attributes['L_limit'] = fait_L_limit
+                par_attributes['a_threshold'] = fait_a_threshold
 
                 fai_diff = [10, 10, 10, 30, 80]
                 req_waves = [490, 560, 660, 865, 1610]                
