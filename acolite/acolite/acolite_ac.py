@@ -26,6 +26,7 @@
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-07-24 (QV) added atmospheric correction parameters to metadata (for fixed DSF), renamed t_gas tag to tt_gas, changed flags type to int32
 ##                                added support for tiled DSF on merged scenes
+##                2018-07-25 (QV) added orange band support for tiled DSF
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -37,12 +38,12 @@ def acolite_ac(bundle, odir,
                 perc_idx=1,
                 percentiles = [0,0.1,1,5,10,25,50,75,90,95,99,99.9,100],
                 luts=['PONDER-LUT-201704-MOD1-1013mb', 'PONDER-LUT-201704-MOD2-1013mb'],#, 'PONDER-LUT-201704-MOD3-1013mb'],
-                fixed_aot550=None,
+                #fixed_aot550=None,
                 fixed_lut='PONDER-LUT-201704-MOD2-1013mb',
                 bestfit='bands',
                 bestfit_bands=None,
                 pixel_range_min=0, pixel_range_max=1000,
-                map_dark_pixels = False,
+                #map_dark_pixels = False,
 
                 ## ACOLITE dark_spectrum settings
                 dsf_spectrum_option='dark_list', # 'absolute_pixel'
@@ -203,11 +204,10 @@ def acolite_ac(bundle, odir,
             
         granules = [bundle]
         ## make band dict
-        band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[], #metadata['WAVES_ALL']
+        band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[],
                                 'resolution':resolution,
-                                'index':b, 'index_name':bands[b], 'lut_name':'{}'.format(band_name.lstrip('B'))} #int(bands[b])
+                                'index':b, 'index_name':bands[b], 'lut_name':'{}'.format(band_name.lstrip('B'))}
                                  for b, band_name in enumerate(band_names)}
-        #print(band_dict)
             
     if data_type == 'Landsat':
         sensor_family = 'Landsat'
@@ -271,7 +271,6 @@ def acolite_ac(bundle, odir,
     else:
         print('Sensor family {} not configured.'.format(sensor_family))
 
-
     ## get RSR wavelengths
     swaves = pp.shared.sensor_wave(metadata['SATELLITE_SENSOR'])
     for b in swaves:
@@ -296,7 +295,6 @@ def acolite_ac(bundle, odir,
     for granule in granules:
         
         l2r_nc_new = True
-        #ptime = time.strftime('%Y-%m-%d %H:%M:%S %Z')
         ptime = time.strftime('%Y-%m-%d %H:%M:%S')
         print('{} - Processing {}'.format(ptime,granule))
 
@@ -435,7 +433,6 @@ def acolite_ac(bundle, odir,
             pc_lat=lat[int(lat.shape[0]/2), int(lat.shape[1]/2)]
             pc_date = metadata['TIME'].strftime('%Y-%m-%d')
             pc_time=metadata['TIME'].hour + metadata['TIME'].minute/60. + metadata['TIME'].second/3600.
-            #print(pc_date, pc_lon, pc_lat, pc_time)
             pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest')
             try:
                 pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest')
@@ -737,6 +734,33 @@ def acolite_ac(bundle, odir,
                             tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_dict[band_name]['lut_name']]
                             tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_dict[band_name]['lut_name']]
                             tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_dict[band_name]['lut_name']]
+
+                        ## orange band in tiled mode
+                        if (l8_output_orange) & (sensor_family == 'Landsat') & (metadata['SATELLITE'] == 'LANDSAT_8'):
+                            ob_sensor = 'L8_OLI_ORANGE'
+                            ac_model = sel_model_lut_meta['base']
+                            if type(ac_model) == list: ac_model=ac_model[0]
+                            ob_lut = ac_model.split('-')[0:4] + ['1013mb']
+                            ob_lut = '-'.join(ob_lut)
+
+                            ## get orange band LUT
+                            ob_lutdir = pp.config['pp_data_dir']+'/LUT'
+                            ob_rsr_file = pp.config['pp_data_dir']+'/RSR/'+ob_sensor+'.txt'
+                            ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, pressure, ob_sensor, ob_rsr_file)
+                            ## get atmospheric correction parameters
+                            ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
+                            pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,\
+                                                                             attributes['AZI'],attributes['THV'],attributes['THS'],tau550)
+                            ## save orange band results in current tile
+                            band_name = 'O'
+                            if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
+
+                            tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_o[band_name]
+                            tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_o[band_name]
+                            tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_o[band_name]
+                            tile_output['atm'][band_name]['utott'][yi,xi] = utott_o[band_name]
+                            tile_output['atm'][band_name]['astot'][yi,xi] = astot_o[band_name]
+                        ## end tiled ob
 
                         ## selected parameters per tile
                         tile_output['tau550'][yi,xi] = tau550
@@ -1355,47 +1379,88 @@ def acolite_ac(bundle, odir,
 
             ##########################
             ## write orange band if requested
-            if (l8_output_orange) & (sensor_family == 'Landsat') & (metadata['SATELLITE'] == 'LANDSAT_8'):
+            if (l8_output_orange) & (sensor_family == 'Landsat') & (metadata['SATELLITE'] == 'LANDSAT_8') & (aerosol_correction == 'dark_spectrum'):
                 if os.path.exists(l1r_ncfile_pan_ms):
                     print('Calculating orange band.')
                     pan_ms = pp.shared.nc_data(l1r_ncfile_pan_ms, 'rhot_pan_ms')
 
-                    ac_model = attributes['ac_model']
-                    print(ac_model)
-                    if type(ac_model) == list: ac_model=ac_model[0]
-                    ob_lut = ac_model.split('-')[0:4] + ['1013mb']
-                    ob_lut = '-'.join(ob_lut)
-
-                    ## get orange band LUT
+                    ## orange band config
                     ob_sensor = 'L8_OLI_ORANGE'
-
                     ob_rsr_file = pp.config['pp_data_dir']+'/RSR/'+ob_sensor+'.txt'
                     ob_rsr, ob_rsr_bands = pp.rsr_read(file=ob_rsr_file)
                     owave = pp.shared.rsr_convolute(ob_rsr['O']['wave'], ob_rsr['O']['wave'], ob_rsr['O']['response'], ob_rsr['O']['wave'])
                     ob_wave = '{:.0f}'.format(owave*1000.)
                     ds_att = {'wavelength': float(ob_wave), 'band_name':"O"}
                     btag = 'O'
-
-                    ob_lutdir = pp.config['pp_data_dir']+'/LUT'
-
-                    ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, attributes['pressure'], ob_sensor, ob_rsr_file)
-                
-                    ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
-                    pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,attributes['AZI'],attributes['THV'],attributes['THS'],attributes['ac_aot550'])
-
                     wave_red,wave_green,wave_orange = 655,561,613
-    
+
+                    ## get orange band config
+                    ob_cfg_file = pp.config['pp_data_dir']+'/Shared/oli_orange.cfg'
+                    ob_cfg = pp.shared.import_config(ob_cfg_file)
+
                     ## compute orange band
                     green = pp.shared.nc_data(l2r_ncfile, 'rhot_{}'.format(wave_green))
                     red = pp.shared.nc_data(l2r_ncfile, 'rhot_{}'.format(wave_red))
-                    green_p = (green * 0.9253772618 -0.0005034888) * 0.4857075
-                    red_p = (red * 0.9897005 + 0.00002547664) * 0.2521709
-                    print(pan_ms.shape, green_p.shape)
-                    band_data = (pan_ms - (green_p + red_p))/0.2739785
+                    ## old fixed implementation
+                    #green_p = (green * 0.9253772618 -0.0005034888) * 0.4857075
+                    #red_p = (red * 0.9897005 + 0.00002547664) * 0.2521709
+                    #band_data = (pan_ms - (green_p + red_p))/0.2739785
+                    print(pan_ms.shape, green.shape)
 
+                    if ob_cfg['algorithm'] == 'A':
+                        ds_att['algorithm'] = 'A'
+                        ## green_p = (green * a_gf[0] + a_gf[1]) * a_gf[2]
+                        ## red_p   = (red * a_rf[0] + a_rf[1]) * a_rf[2]
+                        ## orange  = (pan_ms - (green_p + red_p)) / a_of
+                        a_gf = [float(f.strip()) for f in ob_cfg['a_gf'].split(',')]
+                        a_rf = [float(f.strip()) for f in ob_cfg['a_rf'].split(',')]
+                        a_of = float(ob_cfg['a_of'])
+                        green_p = (green * a_gf[0] + a_gf[1]) * a_gf[2]
+                        red_p = (red * a_rf[0] + a_rf[1]) * a_rf[2]
+                        band_data =  (pan_ms - (green_p + red_p)) / a_of
+                    elif ob_cfg['algorithm'] == 'B':
+                        ds_att['algorithm'] = 'B'
+                        ## orange = b_pf * pan_ms + b_gf * green + b_rf * red
+                        b_pf = float(ob_cfg['b_pf'])
+                        b_gf = float(ob_cfg['b_gf'])
+                        b_rf = float(ob_cfg['b_rf'])
+                        band_data = b_pf * pan_ms + b_gf * green + b_rf * red
+                    
                     ## write TOA data
                     pp.output.nc_write(l2r_ncfile, 'rhot_{}'.format(ob_wave), band_data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att)
                     new=False
+
+                    ## with fixed DSF
+                    if dsf_path_reflectance == 'fixed':
+                        ac_model = attributes['ac_model']
+                        if type(ac_model) == list: ac_model=ac_model[0]
+                        ob_lut = ac_model.split('-')[0:4] + ['1013mb']
+                        ob_lut = '-'.join(ob_lut)
+                        ## get orange band LUT
+                        ob_lutdir = pp.config['pp_data_dir']+'/LUT'
+                        ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, attributes['pressure'], ob_sensor, ob_rsr_file)
+                        ## get atmospheric correction parameters
+                        ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
+                        pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,attributes['AZI'],attributes['THV'],attributes['THS'],attributes['ac_aot550'])
+                        ## add atmosphere parameters to attributes
+                        ds_att['ratm'] = ratm_o[btag]
+                        ds_att['rorayl'] = rorayl_o[btag]
+                        ds_att['dtotr'] = dtotr_o[btag]
+                        ds_att['utotr'] = utotr_o[btag]
+                        ds_att['dtott'] = dtott_o[btag]
+                        ds_att['utott'] = utott_o[btag]
+                        ds_att['astot'] = astot_o[btag]
+                    elif dsf_path_reflectance == 'tiled':
+                        ttg_cur = 1.0 ## gas correction done below
+                        ## interpolate tiles to full scene extent
+                        ratm_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['ratm'], xnew, ynew)
+                        astot_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['astot'], xnew, ynew)
+                        dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][btag]['dtott']*tile_output['atm'][btag]['utott'], xnew, ynew)
+                        if dsf_write_tiled_parameters:
+                            pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(ob_wave), ratm_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                            pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(ob_wave), dutott_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                            pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(ob_wave), astot_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                            l2r_nc_new = False
 
                     ## write Rayleigh corrected reflectance
                     if nc_write_rhorc:
@@ -1418,14 +1483,16 @@ def acolite_ac(bundle, odir,
                             band_data -= rsky_O[btag]
 
                     ## write surface reflectance
-                    rhos_data = pp.rtoa_to_rhos(band_data, ratm_o[btag],utott_o[btag],dtott_o[btag],astot_o[btag], tt_gas = 1)
+                    if dsf_path_reflectance == 'fixed':
+                        rhos_data = pp.rtoa_to_rhos(band_data, ratm_o[btag], utott_o[btag], dtott_o[btag], astot_o[btag], tt_gas = 1)
+                    elif dsf_path_reflectance == 'tiled':
+                        rhos_data = (band_data/ttg_cur) - ratm_cur
+                        rhos_data = (rhos_data) / (dutott_cur + astot_cur * rhos_data)
                     band_data = None
                     pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(ob_wave), rhos_data, dataset_attributes=ds_att)
                     rhos_data = None
                 else:
                     print('L1 pan ms NetCDF file not found')
-
-
             ## end write orange band
             ##############################
 
