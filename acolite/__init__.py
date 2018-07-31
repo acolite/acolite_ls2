@@ -16,7 +16,6 @@ config = import_config(path+'/../config/config.txt')
 
 ## test whether we can find the relative paths
 for t in config:
+    if os.path.exists(config[t]): continue
     tmp = path + '/../' + config[t]
-    tmp = os.path.abspath(tmp)
-    if os.path.exists(tmp):
-        config[t] = tmp
+    config[t] = os.path.abspath(tmp)
