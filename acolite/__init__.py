@@ -13,3 +13,12 @@ from acolite import plotting
 import os
 path = os.path.dirname(__file__)
 config = import_config(path+'/../config/config.txt')
+
+## test whether we can find the relative paths
+for t in config:
+    tmp = path + '/../' + config[t]
+    tmp = os.path.abspath(tmp)
+    if os.path.exists(tmp):
+        config[t] = tmp
+
+print(config)

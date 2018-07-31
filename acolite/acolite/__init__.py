@@ -23,4 +23,9 @@ import os
 path=os.path.dirname(os.path.abspath(__file__))
 config=shared.import_config(path+'/../../config/acolite_config.txt')
 
-for t in config: config[t] = path + '/../../' + config[t]
+## test whether we can find the relative paths
+for t in config:
+    tmp = path + '/../../' + config[t]
+    tmp = os.path.abspath(tmp)
+    if os.path.exists(tmp):
+        config[t] = tmp
