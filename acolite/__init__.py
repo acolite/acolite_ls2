@@ -20,5 +20,3 @@ for t in config:
     tmp = os.path.abspath(tmp)
     if os.path.exists(tmp):
         config[t] = tmp
-
-print(config)
