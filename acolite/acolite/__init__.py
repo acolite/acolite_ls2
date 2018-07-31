@@ -22,3 +22,5 @@ from acolite import shared
 import os
 path=os.path.dirname(os.path.abspath(__file__))
 config=shared.import_config(path+'/../../config/acolite_config.txt')
+
+for t in config: config[t] = path + '/../../' + config[t]
