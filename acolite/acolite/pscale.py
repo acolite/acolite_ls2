@@ -4,12 +4,13 @@
 ## Written by Quinten Vanhellemont 2017-12-05
 ## Last modifications: 2018-04-17 (QV) added nan test
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-09-10 (QV) added encoding
 def pscale():
     from acolite import acolite
     from numpy import nan
     param = {}
     header = None
-    with open(acolite.config['acolite_l2w_labels'], 'r') as f:
+    with open(acolite.config['acolite_l2w_labels'], 'r', encoding="utf-8") as f:
         for line in f.readlines():
             line = line.strip()
             if line[0] in ['#',';']: continue
