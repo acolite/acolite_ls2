@@ -4,8 +4,8 @@
 ## 2017-2018
 ## modifications: 2018-03-07 (QV) added *args
 ##                2018-07-18 (QV) changed acolite import name
-
-def acolite_gui(*args, version='v20180718.0'):
+##                2018-09-12 (QV) updated relative path to default settings
+def acolite_gui(*args, version='v20180912.0'):
     import os
     import argparse
     parser = argparse.ArgumentParser(description='ACOLITE GUI')
@@ -23,6 +23,7 @@ def acolite_gui(*args, version='v20180718.0'):
     import sys
     import time, datetime
 
+    import acolite
     from acolite.acolite import acolite_run, settings_read, settings_write
 
     mp_platforms = ['linux','darwin']
@@ -70,7 +71,7 @@ def acolite_gui(*args, version='v20180718.0'):
                 if os.path.exists('acolite_python_settings.txt'):
                     self.settings_file = 'acolite_python_settings.txt'
                 else:
-                    self.settings_file = 'config/{}'.format('acolite_defaults.txt')
+                    self.settings_file = acolite.acolite.config['acolite_defaults']
                 self.restore(self.settings_file)
                 self.settings_file = 'acolite_python_settings.txt'
 
