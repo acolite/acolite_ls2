@@ -28,6 +28,9 @@
 ##                                added support for tiled DSF on merged scenes
 ##                2018-07-25 (QV) added orange band support for tiled DSF
 ##                                added check for ROI limits just at the edge of the scene
+##                2018-07-30 (QV) added glint correction
+##                2018-08-02 (QV) added threshold for glint correction (don't do GC over land)
+##                2018-09-10 (QV) added glint in tiled mode
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -103,7 +106,15 @@ def acolite_ac(bundle, odir,
                 ## do sky glint correction
                 sky_correction = False,
                 sky_correction_option = 'all',
-                
+
+                ## glint correction
+                glint_correction = False,
+                glint_force_band = None,
+                glint_mask_rhos_band = 1600,
+                glint_mask_rhos_threshold = 0.05,
+                glint_write_rhog_all = False,
+                glint_write_rhog_ref = False,
+
                 ## gains to be applied at TOA
                 gains = False,
                 gains_l5_tm=[1,1,1,1,1,1],
@@ -741,6 +752,15 @@ def acolite_ac(bundle, odir,
                             tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_dict[band_name]['lut_name']]
                             tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_dict[band_name]['lut_name']]
                             tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_dict[band_name]['lut_name']]
+
+                            ## glint in tiled mode
+                            if glint_correction:
+                                ttot_s = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta, 
+                                                  attributes['AZI'], attributes['THV'], attributes['THS'], 
+                                                  tau550, par='ttot')
+                                if 'ttot' not in tile_output['atm'][band_name]: tile_output['atm'][band_name]['ttot'] = zeros(tiles)+nan
+                                tile_output['atm'][band_name]['ttot'][yi,xi] = ttot_s[band_dict[band_name]['lut_name']]
+                            ## end tiled glint
 
                         ## orange band in tiled mode
                         if (l8_output_orange) & (sensor_family == 'Landsat') & (metadata['SATELLITE'] == 'LANDSAT_8'):
@@ -1503,8 +1523,157 @@ def acolite_ac(bundle, odir,
             ## end write orange band
             ##############################
 
-       ## end nc writing
-       ####################################
+        ## end nc writing
+        ####################################
+
+        ## glint correction
+        if (aerosol_correction == 'dark_spectrum') & glint_correction:
+            print('Starting glint correction')
+
+            ## compute scattering angle
+            from numpy import arccos, sqrt, cos, sin, pi, exp
+
+            dtor = pi / 180.
+            ths = attributes['THS'] * dtor
+            thv = attributes['THV'] * dtor
+            azi = attributes['AZI'] * dtor
+
+            cos2omega = cos(ths)*cos(thv) + sin(ths)*sin(thv)*cos(azi)
+            omega = arccos(sqrt(cos2omega))
+            omega = arccos(cos2omega)/2
+
+            ## read refractive index
+            refri = pp.shared.read_refri()
+
+            ## compute fresnel reflectance for each n
+            Rf = [pp.ac.sky_refl(omega, n_w=n) for n in refri['n']]
+
+            ## convolute to sensor bands
+            rsr_file = pp.config['pp_data_dir']+'/RSR/'+attributes['sensor']+'.txt'
+            rsr, rsr_bands = pp.shared.rsr_read(file=rsr_file)
+            wave = [w/1000. for w in refri['wave']]
+            Rf_sen = pp.shared.rsr_convolute_dict(wave, Rf, rsr)
+
+            ## get SWIR waves
+            gc_waves = [band_dict[b]['wave'] for b in band_dict]
+            gc_swir1_idx, gc_swir1_wv = pp.shared.closest_idx(gc_waves, 1650.)
+            gc_swir2_idx, gc_swir2_wv = pp.shared.closest_idx(gc_waves, 2200.)
+            gc_swir1_band = band_dict[band_names[gc_swir1_idx]]['lut_name']
+            gc_swir2_band = band_dict[band_names[gc_swir2_idx]]['lut_name']
+
+            if glint_force_band is not None:
+                gc_user_idx, gc_user_wv = pp.shared.closest_idx(gc_waves, float(glint_force_band))
+                gc_user_band = band_dict[band_names[gc_user_idx]]['lut_name']
+                #print(pp.shared.nc_datasets(l2r_ncfile))
+                #print(gc_user_idx, gc_user_wv, gc_user_band)
+
+            ## get total atmosphere optical thickness
+            if dsf_path_reflectance == 'fixed':
+                if attributes['ac_model_char'] == 'C':
+                    mtag = 'PONDER-LUT-201704-MOD1-1013mb'
+                if attributes['ac_model_char'] == 'M':
+                    mtag = 'PONDER-LUT-201704-MOD2-1013mb'
+                if attributes['ac_model_char'] == 'U':
+                    mtag = 'PONDER-LUT-201704-MOD3-1013mb'
+
+                ttot = pp.aerlut.interplut_sensor(lut_data_dict[mtag]['lut'], lut_data_dict[mtag]['meta'], 
+                                                  attributes['AZI'], attributes['THV'], attributes['THS'], 
+                                                  attributes['ac_aot550'], par='ttot')
+
+            ## empty dict for glint correction
+            gc_data = {'Tu':{}, 'Td':{}, 'T':{}, 
+                       'Rf_USER': {}, 'gc_USER': {}, 
+                       'Rf_SWIR1': {}, 'Rf_SWIR2': {},
+                       'gc_SWIR1': {}, 'gc_SWIR2': {}}
+
+            ## compute glint correction factors
+            for b,band_name in enumerate(band_dict.keys()):
+                if band_name in bands_skip_thermal: continue
+                if band_name in bands_skip_corr: continue
+                btag = band_dict[band_name]['lut_name']
+
+                ## direct up and down transmittance
+                if dsf_path_reflectance == 'fixed':
+                    gc_data['Tu'][btag] = exp(-1.*(ttot[btag]/cos(thv)))
+                    gc_data['Td'][btag] = exp(-1.*(ttot[btag]/cos(ths)))
+                else:
+                    ## interpolate tiles to full scene extent
+                    print('TILED {}'.format(band_name))
+                    ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew)
+                    gc_data['Tu'][btag] = exp(-1.*(ttot_cur/cos(thv)))
+                    gc_data['Td'][btag] = exp(-1.*(ttot_cur/cos(ths)))
+                    print(gc_data['Td'][btag].shape)
+                    ttot_cur = None
+
+                ## two way direct transmittance
+                gc_data['T'][btag]  = gc_data['Tu'][btag] * gc_data['Td'][btag]
+
+                ## fresnel reflectance ratio for SWIR1 and SWIR2
+                gc_data['Rf_SWIR1'][btag]  = Rf_sen[btag]/Rf_sen[gc_swir1_band]
+                gc_data['Rf_SWIR2'][btag]  = Rf_sen[btag]/Rf_sen[gc_swir2_band]
+
+                ## glint correction factor for SWIR1 and SWIR2
+                gc_data['gc_SWIR1'][btag]  = gc_data['T'][btag] * gc_data['Rf_SWIR1'][btag]
+                gc_data['gc_SWIR2'][btag]  = gc_data['T'][btag] * gc_data['Rf_SWIR2'][btag]
+
+                if glint_force_band is not None:
+                    ## do user selected band
+                    gc_data['Rf_USER'][btag]  = Rf_sen[btag]/Rf_sen[gc_user_band]
+                    gc_data['gc_USER'][btag]  = gc_data['T'][btag] * gc_data['Rf_USER'][btag]
+
+            ## get swir threshol for glint correction
+            gc_mask_idx, gc_mask_wave = gc_swir1_idx, gc_swir1_wv = pp.shared.closest_idx(gc_waves, glint_mask_rhos_band)
+            glint_ref_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_mask_idx])))
+            sub_nogc = where(glint_ref_rhos>glint_mask_rhos_threshold)
+            glint_ref_rhos = None
+
+            ## read in rhos
+            if glint_force_band is None:
+                swir1_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_swir1_idx])))
+                swir2_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_swir2_idx])))
+                ## estimate glint correction in the blue band
+                g1_blue = gc_data['gc_SWIR1'][band_dict[band_names[0]]['lut_name']] * swir1_rhos
+                g2_blue = gc_data['gc_SWIR2'][band_dict[band_names[0]]['lut_name']] * swir2_rhos
+                ## use SWIR1 or SWIR2 based glint correction
+                use_swir1 = g1_blue<g2_blue
+                rhog_ref = swir2_rhos
+                rhog_ref[use_swir1] = swir1_rhos[use_swir1]
+                swir1_rhos, swir2_rhos = None, None
+            else:
+                rhog_ref = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_user_idx])))
+
+            ## write reference glint
+            if glint_write_rhog_ref: pp.output.nc_write(l2r_ncfile, 'rhog_ref', rhog_ref)
+
+            ## compute glint correction factors
+            for b,band_name in enumerate(band_dict.keys()):
+                if band_name in bands_skip_thermal: continue
+                if band_name in bands_skip_corr: continue
+                print('Performing glint correction for band {}'.format(band_name))
+
+                ## set up band parameter
+                btag = band_dict[band_name]['lut_name']
+                wave = band_dict[band_name]['wave']
+
+                ## read rhos
+                cur_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format(wave))
+                if glint_force_band is None:
+                    cur_rhog = gc_data['gc_SWIR2'][btag] * rhog_ref
+                    if dsf_path_reflectance == 'fixed':
+                        cur_rhog[use_swir1] = gc_data['gc_SWIR1'][btag] * rhog_ref[use_swir1]
+                    else:
+                        cur_rhog[use_swir1] = gc_data['gc_SWIR1'][btag][use_swir1] * rhog_ref[use_swir1]
+                else:
+                    cur_rhog = gc_data['gc_USER'][btag] * rhog_ref
+
+                cur_gcor = cur_rhos- cur_rhog
+                cur_gcor[sub_nogc] = cur_rhos[sub_nogc]
+                if glint_write_rhog_all: pp.output.nc_write(l2r_ncfile, 'rhog_{}'.format(wave), rhog_cur)
+                cur_rhos, cur_rhog = None, None
+
+                pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(wave), cur_gcor)
+                cur_gcor = None
+       ## end glint correction
                 
         ## remove nc file
         if (nc_delete) & (os.path.exists(l2r_ncfile)):
