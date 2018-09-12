@@ -3,11 +3,13 @@
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## 2018-03-05 (moved from acolite_ac)
 ## modifications: 2018-06-11 (QV) fixed plotting of S2/MSI results
+##                2018-09-12 (QV) fixed matplotlib import issue
 
 def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, ratm_s, rorayl_s, rdark, rdark_sel, dark_spectrum_option, dark_idx, tau550,sel_model_lut_meta):
                 import matplotlib
+                import matplotlib.pyplot as plt
 
-                fig = matplotlib.figure.Figure()
+                fig = plt.figure()
                 canvas = matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
                 ax = fig.add_subplot(111)
 
