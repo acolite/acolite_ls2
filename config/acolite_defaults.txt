@@ -21,8 +21,18 @@ pressure=None
 lut_pressure=True
 dem_pressure=False
 dem_pressure_percentile=25
+
+##
 sky_correction=True
 sky_correction_option=all
+
+## glint correction
+glint_correction=False
+glint_force_band=None
+glint_mask_rhos_band=1600
+glint_mask_rhos_threshold=0.05
+glint_write_rhog_ref=False
+glint_write_rhog_all=False
 
 ## dark spectrum fitting options
 dsf_path_reflectance=fixed
