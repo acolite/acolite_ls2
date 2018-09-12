@@ -3,7 +3,7 @@
 ## 
 ## Written by Quinten Vanhellemont 2017-11-30
 ## Last modifications: 2018-06-06 QV added None check for limit
-
+##                     2018-09-12 QV added length check for splitting on =
 def settings_read(file):
     settings={}
     with open(file, 'r') as f:
@@ -12,6 +12,7 @@ def settings_read(file):
             if len(line) == 0: continue
             if line[0] in ['#',';']: continue
             split = line.split('=')
+            if len(split) < 2: continue
             var = split[0]
             val = split[1].split(',')
             if len(val) == 1:
