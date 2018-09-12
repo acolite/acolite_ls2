@@ -10,6 +10,8 @@
 ##                     2018-07-18 (QV) changed acolite import name
 ##                     2018-07-24 (QV) added l2w_mask_negative_rhow
 ##                     2018-07-25 (QV) added check for empty returns by acolite_ac
+##                     2018-08-02 (QV) added glint correction
+##                     2018-09-10 (QV) added additional L2W parameter check
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -29,6 +31,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
     if 'l2w_parameters' not in setu:
         setu['l2w_parameters'] = None
+    if setu['l2w_parameters'] is not None:
+        if len(setu['l2w_parameters']) == 0: setu['l2w_parameters']=None
 
     if setu['l2w_parameters'] is not None:
         if ('bt10' in setu['l2w_parameters']) or ('bt11' in setu['l2w_parameters']):
@@ -88,8 +92,6 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         olh_output = any([p in setu['l2w_parameters'] for p in ['olh']])
         l8_output_pan_ms = orange_output | olh_output
         l8_output_orange = orange_output | olh_output
-        print(setu['l2w_parameters'])
-        print(l8_output_pan_ms)
 
     ## merge the given tiles if requested
     if setu['merge_tiles']:
@@ -137,6 +139,14 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         uwv_default=float(setu['uwv_default']),
                                                         sky_correction=setu['sky_correction'],
                                                         sky_correction_option=setu['sky_correction_option'],
+
+                                                        glint_correction = setu['glint_correction'],
+                                                        glint_force_band = setu['glint_force_band'],
+                                                        glint_mask_rhos_band = setu['glint_mask_rhos_band'],
+                                                        glint_mask_rhos_threshold = float(setu['glint_mask_rhos_threshold']),
+                                                        glint_write_rhog_ref = setu['glint_write_rhog_ref'],
+                                                        glint_write_rhog_all = setu['glint_write_rhog_all'],
+
                                                         pressure=setu['pressure'],
                                                         lut_pressure=setu['lut_pressure'],
                                                         dem_pressure=setu['dem_pressure'],
