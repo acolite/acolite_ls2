@@ -6,6 +6,7 @@
 ##                2018-03-12 (QV) added path check
 ##                2018-03-22 (QV) added option for multiple images
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-09-12 (QV) added --nogfx option
 
 def acolite_cli(*args):
     import os
@@ -38,7 +39,6 @@ def acolite_cli(*args):
     parser = argparse.ArgumentParser(description='ACOLITE CLI')
     parser.add_argument('--settings', help='settings file')
     parser.add_argument('--images', help='list of images')
-    #args = parser.parse_args()
     args, unknown = parser.parse_known_args()
 
     if args.settings is None:
@@ -57,6 +57,14 @@ def acolite_cli(*args):
 
     logfile = '{}/{}'.format(acolite_settings['output'],'acolite_run_{}_log.txt'.format(acolite_settings['runid']))
     log = LogTee(logfile)
+
+    if '--nogfx' in unknown:
+        print('Disabling matplotlib and graphical outputs.')
+        acolite_settings['rgb_rhot']=False
+        acolite_settings['rgb_rhos']=False
+        acolite_settings['map_l2w']=False
+        acolite_settings['dsf_plot_retrieved_tiles']=False
+        acolite_settings['dsf_plot_dark_spectrum']=False
 
     print('Running ACOLITE')
     if args.images is None:
