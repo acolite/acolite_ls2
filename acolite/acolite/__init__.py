@@ -17,14 +17,22 @@ from .pscale import pscale
 from .settings_read import settings_read
 from .settings_write import settings_write
 
-from acolite import shared
+from acolite.shared import *
 
 import os
 path=os.path.dirname(os.path.abspath(__file__))
-config=shared.import_config(path+'/../../config/acolite_config.txt')
+for i in range(2): path = os.path.split(path)[0]
+
+## check if binary distribution
+if '/dist/acolite' in path:
+    ## two more levels for this file
+    for i in range(2): path = os.path.split(path)[0]
+
+cfile='{}/config/acolite_config.txt'.format(path)
+config = import_config(cfile)
 
 ## test whether we can find the relative paths
 for t in config:
     if os.path.exists(config[t]): continue
-    tmp = path + '/../../' + config[t]
+    tmp = path + '/' + config[t]
     config[t] = os.path.abspath(tmp)

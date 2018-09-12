@@ -11,11 +11,21 @@ from acolite import plotting
 
 ##
 import os
-path = os.path.dirname(__file__)
-config = import_config(path+'/../config/config.txt')
+path = os.path.dirname(os.path.abspath(__file__))
+
+if not os.path.exists('{}/config'.format(path)):
+    path = os.path.split(path)[0]
+
+    ## check if binary distribution
+    if '/dist/acolite' in path:
+        ## two levels for this file
+        for i in range(2): path = os.path.split(path)[0]
+
+cfile='{}/config/config.txt'.format(path)
+config = import_config(cfile)
 
 ## test whether we can find the relative paths
 for t in config:
     if os.path.exists(config[t]): continue
-    tmp = path + '/../' + config[t]
+    tmp = path + '/' + config[t]
     config[t] = os.path.abspath(tmp)
