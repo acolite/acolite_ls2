@@ -18,4 +18,4 @@ ACOLITE is coded in Python 3, and requires the following Python packages to run 
 ## Installation
 * cd into a suitable directory and clone the git repository: `git clone https://github.com/acolite/acolite`
 * cd into the new acolite directory `cd acolite`
-* run `python acolite.py`
+* run `python launch_acolite.py`
