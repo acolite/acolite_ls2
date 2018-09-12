@@ -999,10 +999,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             from numpy import where, nan, mod, pi, arctan2, nanmedian, power
                             yw = 1/3.
                             xw = 1/3.
-                            print(req_waves_selected)
                             for iw, w in enumerate(req_waves_selected):
                                 idx, w_ = closest_idx(hac['lambda'], req_waves_selected[iw])
-                                print(idx, w, w_)
                                 if iw == 0:
                                     X = data_read[required_datasets[iw]] * hac['X'][idx]
                                     Y = data_read[required_datasets[iw]] * hac['Y'][idx]
