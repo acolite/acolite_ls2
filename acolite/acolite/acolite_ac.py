@@ -451,7 +451,6 @@ def acolite_ac(bundle, odir,
             pc_lat=lat[int(lat.shape[0]/2), int(lat.shape[1]/2)]
             pc_date = metadata['TIME'].strftime('%Y-%m-%d')
             pc_time=metadata['TIME'].hour + metadata['TIME'].minute/60. + metadata['TIME'].second/3600.
-            pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest')
             try:
                 pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest')
             except:
@@ -464,7 +463,6 @@ def acolite_ac(bundle, odir,
                     print('No ancillary pressure found: using default.')
                     pressure=None
                 else: pressure = pc_anc['press']['interp']
-
 
         ## get gas transmittances
         if gas_transmittance:
