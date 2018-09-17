@@ -19,7 +19,7 @@ def launch_acolite():
     if '--cli' in sys.argv:
         ac.acolite.acolite_cli(sys.argv)
     else:
-        ret = ac.acolite.acolite_gui(sys.argv)
+        ret = ac.acolite.acolite_gui(sys.argv, version=ac.acolite.config['version'])
 
 if __name__ == '__main__':
     launch_acolite()

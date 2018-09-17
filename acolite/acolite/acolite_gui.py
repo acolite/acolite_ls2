@@ -5,7 +5,7 @@
 ## modifications: 2018-03-07 (QV) added *args
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-09-12 (QV) updated relative path to default settings
-def acolite_gui(*args, version='v20180912.0'):
+def acolite_gui(*args, version=None):
     import os
     import argparse
     parser = argparse.ArgumentParser(description='ACOLITE GUI')
@@ -78,7 +78,10 @@ def acolite_gui(*args, version='v20180912.0'):
         def setup(self):
             ## set up GUI
             tk.Tk.__init__(self)
-            self.title('ACOLITE Python ({})'.format(self.version))
+            if self.version is None:
+                self.title('ACOLITE Python (unknown version)')
+            else:
+                self.title('ACOLITE Python (v{})'.format(self.version))
 
             self.resizable(False,False)
 

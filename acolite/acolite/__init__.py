@@ -33,6 +33,7 @@ config = import_config(cfile)
 
 ## test whether we can find the relative paths
 for t in config:
+    if t in ['version']: continue
     if os.path.exists(config[t]): continue
     tmp = path + os.path.sep + config[t]
     config[t] = os.path.abspath(tmp)
