@@ -251,7 +251,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
     if scalebar:
             if scalepos not in ['UR','UL','LL','LR']:
                 print('Scalepos {} not recognised. Using default.'.format(scalepos))
-                scalepos = 'TR'
+                scalepos = 'UR'
                 
             xlab_pix, ylab_pix = 100, 125
             ylab_off = (20/(figsize[1]*dpi))
