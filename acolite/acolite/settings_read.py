@@ -4,9 +4,10 @@
 ## Written by Quinten Vanhellemont 2017-11-30
 ## Last modifications: 2018-06-06 QV added None check for limit
 ##                     2018-09-12 QV added length check for splitting on =
+##                     2018-09-19 QV added encoding
 def settings_read(file):
     settings={}
-    with open(file, 'r') as f:
+    with open(file, 'r', encoding="utf-8") as f:
         for line in f.readlines():
             line = line.strip()
             if len(line) == 0: continue

@@ -4,11 +4,12 @@
 ## 2016-07-11
 ## modifications: 2016-11-23 QV added support for the S2A RSR file
 ##                2018-03-27 QV Fixed bug in L8 RSR file on windows
+##                2018-09-19 (QV) added encoding
 
 def rsr_read(file=None):
     import fnmatch
     if file is not None:
-        with open(file) as f:
+        with open(file, 'r', encoding='utf-8') as f:
             rwave=[]
             rresp=[]
             bands=[]
