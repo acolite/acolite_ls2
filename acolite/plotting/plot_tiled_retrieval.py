@@ -2,13 +2,13 @@
 ## plots ACOLITE tiled aot retrievals
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## 2018-03-05
-## modifications: 
+## modifications: 2018-09-19 (QV) changed matplotlib imports
 
 def plot_tiled_retrieval(tiles, tile_data, tile_output, metadata, rdark, odir,
                         map_model_per_tile=True, map_rdark_blue_swir=True, map_aot_blue_swir=True):
-    ## works in Tk GUI
-    import matplotlib
-    #matplotlib.use("TkAgg")
+    import matplotlib.cm
+    import matplotlib.figure
+    import matplotlib.backends.backend_agg
 
     from numpy.ma import masked_where
     from numpy import isnan
