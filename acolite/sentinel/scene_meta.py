@@ -6,6 +6,8 @@
 ##                2017-06-06 (QV) added waves and rgb bands info
 ##                2017-11-22 (QV) added defaults for the model selection
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-10-01 (QV) removed obsolete bits
+
 def scene_meta(metafile):
     import dateutil.parser
     from xml.dom import minidom
@@ -118,13 +120,8 @@ def scene_meta(metafile):
     metadata['WAVES'] = [int(w) for w in waves]
     band_names = [banddata['BandNames'][i] for i in bands]
     metadata['BAND_NAMES'] = band_names
-
-    ## some defaults here - probably not used any more
-    metadata['BANDS_REDNIR'] = ['4','5','7','8','8A']
-    metadata['BANDS_VIS'] = ['1','2','3','4']
-    metadata['BANDS_NIR'] = ['7','8','8A','11','12']
-    metadata['BANDS_BESTFIT'] = ['11','12']
     metadata['BANDS_ALL'] = ['1','2','3','4','5','6','7','8','8A','11','12']
     metadata['BAND_NAMES_ALL'] = band_names
+    metadata['BANDS_BESTFIT'] = ['11','12']
 
     return(metadata,banddata)

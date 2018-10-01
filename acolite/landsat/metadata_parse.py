@@ -4,6 +4,7 @@
 ## 2017-04-13
 ## modifications: (QV) 2017-06-15 changed band removal
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-10-01 (QV) removed obsolete bits
 
 def metadata_parse(bundle):
     import dateutil.parser
@@ -26,7 +27,6 @@ def metadata_parse(bundle):
         metadata['AZI'] = float(mdata['IMAGE_ATTRIBUTES']['SUN_AZIMUTH'])
         metadata['THS'] = 90. - float(mdata['IMAGE_ATTRIBUTES']['SUN_ELEVATION'])
         metadata['THV'] = 0.
-        #metadata['THV'] = 3.5
         metadata['SCENE'] = mdata['METADATA_FILE_INFO']['LANDSAT_SCENE_ID']
         if 'LANDSAT_PRODUCT_ID' in mdata['METADATA_FILE_INFO'].keys(): metadata['PRODUCT'] = mdata['METADATA_FILE_INFO']['LANDSAT_PRODUCT_ID']
 
@@ -105,7 +105,6 @@ def metadata_parse(bundle):
     ## set up bands
     metadata['BANDS']=list(bands)
     metadata['BANDS'].sort()
-
     metadata['BAND_NAMES'] = metadata['BANDS']
 
     ## some sensor specific config
@@ -117,73 +116,37 @@ def metadata_parse(bundle):
         remove_bands = ['8','9','10','11'] ## pan cirrus thermal x2
         for rb in remove_bands:
             if rb in metadata['BANDS']: metadata['BANDS'].remove(rb)
-
-        #metadata['BANDS'].remove('8') ## remove Pan band
-        #metadata['BANDS'].remove('9') ## remove Cirrus band
-        #metadata['BANDS'].remove('10') ## remove Thermal band
-        #metadata['BANDS'].remove('11') ## remove Thermal band
         metadata['SATELLITE_SENSOR'] = 'L8_OLI'
-        #metadata['RGB_BANDS']= {'rhot':{'blue':'rhot_483','green':'rhot_561','red':'rhot_655'},
-        #                        'rhos':{'blue':'rhos_483','green':'rhos_561','red':'rhos_655'}}
         metadata['RGB_BANDS']= [483,561,655]
         metadata['WAVES']= [443,483,561,655,865,1609,2201]
-    
-        ## some defaults here - probably not used any more
-        metadata['BANDS_REDNIR'] = ['4','5']
-        metadata['BANDS_VIS'] = ['1','2','3','4']
-        metadata['BANDS_NIR'] = ['5','6','7']
-        metadata['BANDS_BESTFIT'] = ['6','7']
-        #metadata['BANDS_ALL'] = ['1','2','3','4','5','6','7','9','10','11']
         metadata['BANDS_ALL'] = ['1','2','3','4','5','6','7','9','10','11']
-        metadata['BANDS_PAN'] = ['8']
-        metadata['BANDS_CIRRUS'] = ['9']
+        metadata['BANDS_BESTFIT'] = ['6','7']
         metadata['BANDS_THERMAL'] = ['10','11']
         metadata['BAND_NAMES_ALL'] = ['1','2','3','4','5','6','7','9','10','11']
         metadata['WAVES_ALL']= [443,483,561,655,865,1609,2201,1375,10900,11500]
 
     if metadata["SATELLITE"] == 'LANDSAT_5':
-        #metadata['BANDS'].remove('6') ## remove Thermal band
         remove_bands = ['6'] ## thermal
         for rb in remove_bands:
             if rb in metadata['BANDS']: metadata['BANDS'].remove(rb)
         metadata['SATELLITE_SENSOR'] = 'L5_TM' if metadata['SENSOR'] == 'TM' else 'L5_MSS'
-        #metadata['RGB_BANDS']= {'rhot':{'blue':'rhot_486','green':'rhot_571','red':'rhot_660'},
-        #                        'rhos':{'blue':'rhos_486','green':'rhos_571','red':'rhos_660'}}
         metadata['RGB_BANDS']= [486,571,660]
         metadata['WAVES']= [486, 571, 660, 839, 1678, 2217]
-
-        ## some defaults here - probably not used any more
-        metadata['BANDS_REDNIR'] = ['3','4']
-        metadata['BANDS_VIS'] = ['1','2','3']
-        metadata['BANDS_NIR'] = ['4','5','7']
-        metadata['BANDS_BESTFIT'] = ['5','7']
         metadata['BANDS_ALL'] = ['1','2','3','4','5','6','7']
-        metadata['BANDS_PAN'] = []
-        metadata['BANDS_CIRRUS'] = []
+        metadata['BANDS_BESTFIT'] = ['5','7']
         metadata['BANDS_THERMAL'] = ['6']
         metadata['BAND_NAMES_ALL'] = ['1','2','3','4','5','6','7']
         metadata['WAVES_ALL']= [486, 571, 660, 839, 1678, 10000, 2217]
 
     if metadata["SATELLITE"] == 'LANDSAT_7':
-        #metadata['BANDS'].remove('6') ## remove Thermal band
-        #metadata['BANDS'].remove('8') ## remove Pan band
         remove_bands = ['6','8'] ## thermal pan
         for rb in remove_bands:
             if rb in metadata['BANDS']: metadata['BANDS'].remove(rb)
         metadata['SATELLITE_SENSOR'] = 'L7_ETM'
-        #metadata['RGB_BANDS']= {'rhot':{'blue':'rhot_479','green':'rhot_561','red':'rhot_661'},
-        #                        'rhos':{'blue':'rhos_479','green':'rhos_561','red':'rhos_661'}}
         metadata['RGB_BANDS']= [479,561,661]
         metadata['WAVES']= [479, 561, 661, 835, 1650, 2208]
-
-        ## some defaults here - probably not used any more
-        metadata['BANDS_REDNIR'] = ['3','4']
-        metadata['BANDS_VIS'] = ['1','2','3']
-        metadata['BANDS_NIR'] = ['4','5','7']
-        metadata['BANDS_BESTFIT'] = ['5','7']
         metadata['BANDS_ALL'] = ['1','2','3','4','5','6','7']
-        metadata['BANDS_PAN'] = ['8']
-        metadata['BANDS_CIRRUS'] = []
+        metadata['BANDS_BESTFIT'] = ['5','7']
         metadata['BANDS_THERMAL'] = ['6']
         metadata['BAND_NAMES_ALL'] = ['1','2','3','4','5','6','7']
         metadata['WAVES_ALL']= [479, 561, 661, 835, 1650, 10000, 2208]
@@ -197,10 +160,8 @@ def metadata_parse(bundle):
     for par in mdata['PRODUCT_METADATA']:
         if 'FILE_NAME' in par:
                 fname = mdata['PRODUCT_METADATA'][par]
-#                print(fname)
                 exists = False
                 for file in bundle_files:
-#                    print(bundle_files[file]['fname'])
                     if bundle_files[file]['fname'] == fname:
                         exists = True
                         metadata[file] = bundle_files[file]['path']

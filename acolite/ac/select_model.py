@@ -25,6 +25,7 @@
 ##                2018-03-12 (QV) changed pixel_range to floats for Windows processing
 ##                2018-03-14 (QV) added lut sensor metadata check
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-10-01 (QV) removed obsolete bits
 
 def select_model(metadata, rdark, rsr_file=None, lutdir=None, bestfit='bands', bestfit_bands=None, 
                  force_band=None, pressure=None, model_selection='min_tau', rdark_list_selection='intercept',
@@ -43,24 +44,16 @@ def select_model(metadata, rdark, rsr_file=None, lutdir=None, bestfit='bands', b
             se_distance = metadata['SE_DISTANCE']
         else:
             se_distance = pp.distance_se(metadata['DOY'])
-            
         ths = metadata['THS']
         thv = metadata['THV']
         azi = metadata['AZI']
-        
         if 'LUT_SENSOR' in metadata.keys():
             sensor = metadata['LUT_SENSOR']
         elif 'SATELLITE_SENSOR' in metadata.keys():
             sensor = metadata['SATELLITE_SENSOR']
         else:
             sensor = metadata['SENSOR']
-
-        rednir_bands = metadata['BANDS_REDNIR']
-        vis_bands = metadata['BANDS_VIS']
-        nir_bands = metadata['BANDS_NIR']
-
         bestfit_bands_defaults = metadata['BANDS_BESTFIT']
-        
         bands_sorted = metadata['BANDS_ALL']
     except:
         print('Could not get appropriate metadata for model selection for satellite {}'.format(metadata['SATELLITE']))
