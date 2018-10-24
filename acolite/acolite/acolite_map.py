@@ -7,6 +7,7 @@
 ##                     2018-04-18 (QV) integrated RGB mapping, added dataset rescaling
 ##                     2018-04-19 (QV) added RGB pan sharpening option
 ##                     2018-07-18 (QV) changed acolite import name
+##                     2018-10-24 (QV) changed matplotlib figure call
 
 def acolite_map(inputfile=None, output=None, parameters=None, 
                 dpi=300, ext='png', mapped=True, max_dim = 1000, limit=None,
@@ -30,6 +31,8 @@ def acolite_map(inputfile=None, output=None, parameters=None,
     from scipy.ndimage import zoom
 
     import matplotlib
+    import matplotlib.pyplot as plt
+
 
     if not os.path.exists(inputfile):
         print('File {} not found.'.format(inputfile))
@@ -221,7 +224,7 @@ def acolite_map(inputfile=None, output=None, parameters=None,
 
                     if not map_raster:
                         ## set up plot
-                        fig = matplotlib.figure.Figure()
+                        fig = plt.figure()
                         canvas = matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
                         ax = fig.add_subplot(111)
 
@@ -351,7 +354,7 @@ def acolite_map(inputfile=None, output=None, parameters=None,
             else:
                 if not map_raster:
                     ## set up plot
-                    fig = matplotlib.figure.Figure()
+                    fig = plt.figure()
                     canvas = matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
                     ax = fig.add_subplot(111)
                     ax.imshow(image)
