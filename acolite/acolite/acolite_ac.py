@@ -31,6 +31,8 @@
 ##                2018-07-30 (QV) added glint correction
 ##                2018-08-02 (QV) added threshold for glint correction (don't do GC over land)
 ##                2018-09-10 (QV) added glint in tiled mode
+##                2018-10-01 (QV) added ALI support
+##                2018-10-24 (QV) fixed rhorc output for EXP
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -168,9 +170,9 @@ def acolite_ac(bundle, odir,
         try:
             metadata = pp.landsat.metadata_parse(bundle)
             data_type = "Landsat"
-            if metadata['NEW_STYLE'] is False:
-                 print('Old style Landsat not yet configured {}.'.format(bundle))
-                 return(1)
+            #if metadata['NEW_STYLE'] is False:
+            #     print('Old style Landsat not yet configured {}.'.format(bundle))
+            #     return(1)
         except:
             data_type = None
         
@@ -228,7 +230,14 @@ def acolite_ac(bundle, odir,
         waves = metadata['WAVES_ALL']
         granules = [bundle]
         ## make band dict Landsat
-        band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[], 
+        if metadata['SENSOR'] == 'ALI':
+            band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[], 
+                                    'resolution':30,
+                                    'index':b, 'index_name':bands[b], 'lut_name':bands[b]} 
+                                     for b, band_name in enumerate(band_names)}
+
+        else:
+            band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[], 
                                 'resolution':30,
                                 'index':int(bands[b]), 'index_name':bands[b], 'lut_name':bands[b]} 
                                  for b, band_name in enumerate(band_names)}
@@ -265,9 +274,16 @@ def acolite_ac(bundle, odir,
             bands_skip_thermal = ['6']
             gains_dict = {bn:gains_l7_etm[bi] for bi,bn in enumerate(['1','2','3','4','5','7'])}
         if metadata['SATELLITE'] == 'LANDSAT_8' : 
+            ob_cfg = None
             bands_skip_corr = ['8','9','10','11']
             bands_skip_thermal = ['10','11']
             gains_dict = {bn:gains_l8_oli[bi] for bi,bn in enumerate(band_names) if bn not in bands_skip_corr}
+        if metadata['SATELLITE'] == 'EO1' : 
+            bands_skip_corr = []
+            bands_skip_thermal = []
+            gains_eo1_tm = [1.0 for bi,bn in enumerate(band_names) if bn not in bands_skip_corr]
+            gains_dict = {bn:gains_eo1_tm[bi] for bi,bn in enumerate(band_names) if bn not in bands_skip_corr}
+
         if dsf_tile_dims is None:
             dsf_tile_dims = [201,201] # 6x6 km
     elif sensor_family == 'Sentinel': 
@@ -349,11 +365,12 @@ def acolite_ac(bundle, odir,
                 if limit is None: sub=None
                 
             ## calculate view azimuth and update metadata
-            view_azi = pp.landsat.view_azimuth(bundle, metadata)
-            azi = float(metadata['AZI'])-view_azi
-            if azi > 180.: azi-= 180.
-            if azi < 0.: azi+= 180.
-            metadata['AZI']=azi
+            if metadata['SENSOR'] != 'ALI':
+                view_azi = pp.landsat.view_azimuth(bundle, metadata)
+                azi = float(metadata['AZI'])-view_azi
+                if azi > 180.: azi-= 180.
+                if azi < 0.: azi+= 180.
+                metadata['AZI']=azi
             
         if data_type == 'Sentinel':
             ## read granule metadata
@@ -762,29 +779,46 @@ def acolite_ac(bundle, odir,
 
                         ## orange band in tiled mode
                         if (l8_output_orange) & (sensor_family == 'Landsat') & (metadata['SATELLITE'] == 'LANDSAT_8'):
-                            ob_sensor = 'L8_OLI_ORANGE'
-                            ac_model = sel_model_lut_meta['base']
-                            if type(ac_model) == list: ac_model=ac_model[0]
-                            ob_lut = ac_model.split('-')[0:4] + ['1013mb']
-                            ob_lut = '-'.join(ob_lut)
+                            if ob_cfg is None:
+                                ## get orange band config
+                                ob_cfg_file = pp.config['pp_data_dir']+'/Shared/oli_orange.cfg'
+                                ob_cfg = pp.shared.import_config(ob_cfg_file)
 
-                            ## get orange band LUT
-                            ob_lutdir = pp.config['pp_data_dir']+'/LUT'
-                            ob_rsr_file = pp.config['pp_data_dir']+'/RSR/'+ob_sensor+'.txt'
-                            ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, pressure, ob_sensor, ob_rsr_file)
-                            ## get atmospheric correction parameters
-                            ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
-                            pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,\
-                                                                             attributes['AZI'],attributes['THV'],attributes['THS'],tau550)
-                            ## save orange band results in current tile
-                            band_name = 'O'
-                            if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
+                            if ob_cfg['combine'] == 'after':
+                                ## save pan band results in current tile
+                                band_name = '8'
+                                if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
 
-                            tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_o[band_name]
-                            tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_o[band_name]
-                            tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_o[band_name]
-                            tile_output['atm'][band_name]['utott'][yi,xi] = utott_o[band_name]
-                            tile_output['atm'][band_name]['astot'][yi,xi] = astot_o[band_name]
+                                tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_s[band_name]
+                                tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_s[band_name]
+                                tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_name]
+                                tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_name]
+                                tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_name]
+
+                            else:
+                                ob_sensor = 'L8_OLI_ORANGE'
+                                ac_model = sel_model_lut_meta['base']
+                                if type(ac_model) == list: ac_model=ac_model[0]
+                                ob_lut = ac_model.split('-')[0:4] + ['1013mb']
+                                ob_lut = '-'.join(ob_lut)
+
+                                ## get orange band LUT
+                                ob_lutdir = pp.config['pp_data_dir']+'/LUT'
+                                ob_rsr_file = pp.config['pp_data_dir']+'/RSR/'+ob_sensor+'.txt'
+                                ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, pressure, ob_sensor, ob_rsr_file)
+                                ## get atmospheric correction parameters
+                                ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
+                                pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,\
+                                                                                 attributes['AZI'],attributes['THV'],attributes['THS'],tau550)
+                                ## save orange band results in current tile
+                                band_name = 'O'
+                                if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
+
+                                tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_o[band_name]
+                                tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_o[band_name]
+                                tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_o[band_name]
+                                tile_output['atm'][band_name]['utott'][yi,xi] = utott_o[band_name]
+                                tile_output['atm'][band_name]['astot'][yi,xi] = astot_o[band_name]
                         ## end tiled ob
 
                         ## selected parameters per tile
@@ -1170,6 +1204,8 @@ def acolite_ac(bundle, odir,
                         band_data = pp.landsat.get_rtoa(bundle, metadata, band_name, sub=sub)
                     if data_type == 'Sentinel':
                         band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, target_res=s2_target_res, sub=grids)
+                ## get nans from toa product
+                valid_mask = isfinite(band_data)
 
                 ## apply gains
                 if (gains) & (band_name in gains_dict):
@@ -1187,7 +1223,12 @@ def acolite_ac(bundle, odir,
 
                 ## write Rayleigh corrected reflectance
                 if nc_write_rhorc:
-                    rrc_cur = (band_data - rorayl_s[btag]) / (dtotr_s[btag]*utotr_s[btag])
+                    if aerosol_correction == 'dark_spectrum':
+                        rrc_cur = (band_data - rorayl_s[btag]) / (dtotr_s[btag]*utotr_s[btag])
+                    elif aerosol_correction == 'exponential':
+                        rrc_cur = (band_data - rorayl[btag]) / (dtotr[btag]*utotr[btag])
+
+                    rrc_cur[valid_mask == 0] = nan
                     pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(wave), rrc_cur, new=l2r_nc_new, attributes=attributes, dataset_attributes={'wavelength':float(wave),'band_name':band_name})
                     rrc_cur = None
                     l2r_nc_new=False
@@ -1253,6 +1294,7 @@ def acolite_ac(bundle, odir,
                     
                     ## write surface reflectance
                     if (nc_write_rhos):
+                            rhos_data[valid_mask == 0] = nan
                             pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, 
                                            attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                             l2r_nc_new = False
@@ -1260,6 +1302,7 @@ def acolite_ac(bundle, odir,
                     ## write water reflectance
                     ## add sky corr and mask
                     if (nc_write_rhow):
+                            rhos_data[valid_mask == 0] = nan
                             rhos_data[mask] = nan
                             pp.output.nc_write(l2r_ncfile, parname_w, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, 
                                                attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
@@ -1408,6 +1451,8 @@ def acolite_ac(bundle, odir,
                 if os.path.exists(l1r_ncfile_pan_ms):
                     print('Calculating orange band.')
                     pan_ms = pp.shared.nc_data(l1r_ncfile_pan_ms, 'rhot_pan_ms')
+                    ## get nans from toa product
+                    valid_mask = isfinite(pan_ms)
 
                     ## orange band config
                     ob_sensor = 'L8_OLI_ORANGE'
@@ -1420,17 +1465,40 @@ def acolite_ac(bundle, odir,
                     wave_red,wave_green,wave_orange = 655,561,613
 
                     ## get orange band config
-                    ob_cfg_file = pp.config['pp_data_dir']+'/Shared/oli_orange.cfg'
-                    ob_cfg = pp.shared.import_config(ob_cfg_file)
+                    if ob_cfg is None:
+                        ob_cfg_file = pp.config['pp_data_dir']+'/Shared/oli_orange.cfg'
+                        ob_cfg = pp.shared.import_config(ob_cfg_file)
+
+                    if ob_cfg['combine'] == 'after':
+                        ob_ds = 'rhos_{}'
+                        ptag = '8'
+                        # pan band gas transmittance
+                        if gas_transmittance:
+                            pan_ms/=tt_gas[ptag]
+                        # pan band sky reflectance
+                        if sky_correction:
+                            if sky_correction_option == 'all':
+                                pan_ms-=rsky[ptag]
+                        # fixed or tiled DSF to get pan band rhos
+                        if dsf_path_reflectance == 'fixed':
+                            ## pan band
+                            pan_ms = pp.rtoa_to_rhos(pan_ms, ratm_s[ptag], utott_s[ptag], dtott_s[ptag], astot_s[ptag], tt_gas = 1)
+                        else:
+                            print('tiled orange band!')
+                            ttg_cur = 1.0 ## gas correction done below
+                            ## interpolate tiles to full scene extent
+                            ratm_cur = pp.ac.tiles_interp(tile_output['atm'][ptag]['ratm'], xnew, ynew)
+                            astot_cur = pp.ac.tiles_interp(tile_output['atm'][ptag]['astot'], xnew, ynew)
+                            dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][ptag]['dtott']*tile_output['atm'][ptag]['utott'], xnew, ynew)
+                            pan_ms = (pan_ms/ttg_cur) - ratm_cur
+                            pan_ms = (pan_ms) / (dutott_cur + astot_cur * pan_ms)
+                    else:
+                        ob_ds = 'rhot_{}'
 
                     ## compute orange band
-                    green = pp.shared.nc_data(l2r_ncfile, 'rhot_{}'.format(wave_green))
-                    red = pp.shared.nc_data(l2r_ncfile, 'rhot_{}'.format(wave_red))
-                    ## old fixed implementation
-                    #green_p = (green * 0.9253772618 -0.0005034888) * 0.4857075
-                    #red_p = (red * 0.9897005 + 0.00002547664) * 0.2521709
-                    #band_data = (pan_ms - (green_p + red_p))/0.2739785
-                    print(pan_ms.shape, green.shape)
+                    green = pp.shared.nc_data(l2r_ncfile, ob_ds.format(wave_green))
+                    red = pp.shared.nc_data(l2r_ncfile, ob_ds.format(wave_red))
+                    valid_mask *= isfinite(green) * isfinite(red)
 
                     if ob_cfg['algorithm'] == 'A':
                         ds_att['algorithm'] = 'A'
@@ -1450,70 +1518,78 @@ def acolite_ac(bundle, odir,
                         b_gf = float(ob_cfg['b_gf'])
                         b_rf = float(ob_cfg['b_rf'])
                         band_data = b_pf * pan_ms + b_gf * green + b_rf * red
-                    
-                    ## write TOA data
-                    pp.output.nc_write(l2r_ncfile, 'rhot_{}'.format(ob_wave), band_data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att)
-                    new=False
 
                     ## with fixed DSF
-                    if dsf_path_reflectance == 'fixed':
-                        ac_model = attributes['ac_model']
-                        if type(ac_model) == list: ac_model=ac_model[0]
-                        ob_lut = ac_model.split('-')[0:4] + ['1013mb']
-                        ob_lut = '-'.join(ob_lut)
-                        ## get orange band LUT
-                        ob_lutdir = pp.config['pp_data_dir']+'/LUT'
-                        ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, attributes['pressure'], ob_sensor, ob_rsr_file)
-                        ## get atmospheric correction parameters
-                        ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
-                        pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,attributes['AZI'],attributes['THV'],attributes['THS'],attributes['ac_aot550'])
-                        ## add atmosphere parameters to attributes
-                        ds_att['ratm'] = ratm_o[btag]
-                        ds_att['rorayl'] = rorayl_o[btag]
-                        ds_att['dtotr'] = dtotr_o[btag]
-                        ds_att['utotr'] = utotr_o[btag]
-                        ds_att['dtott'] = dtott_o[btag]
-                        ds_att['utott'] = utott_o[btag]
-                        ds_att['astot'] = astot_o[btag]
-                    elif dsf_path_reflectance == 'tiled':
-                        ttg_cur = 1.0 ## gas correction done below
-                        ## interpolate tiles to full scene extent
-                        ratm_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['ratm'], xnew, ynew)
-                        astot_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['astot'], xnew, ynew)
-                        dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][btag]['dtott']*tile_output['atm'][btag]['utott'], xnew, ynew)
-                        if dsf_write_tiled_parameters:
-                            pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(ob_wave), ratm_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                            pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(ob_wave), dutott_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                            pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(ob_wave), astot_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                            l2r_nc_new = False
-
-                    ## write Rayleigh corrected reflectance
-                    if nc_write_rhorc:
-                        rrc_cur = (band_data - rorayl_o[btag]) / (dtotr_o[btag]*utotr_o[btag])
-                        pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(ob_wave), rrc_cur, new=new, attributes=attributes, dataset_attributes=ds_att)
-                        rrc_cur = None
+                    if ob_cfg['combine'] == 'before':
+                        ## write TOA data
+                        pp.output.nc_write(l2r_ncfile, 'rhot_{}'.format(ob_wave), band_data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att)
                         new=False
 
-                    if gas_transmittance: 
-                        ob_tt_oz = pp.ac.o3_transmittance(ob_sensor, metadata, uoz=uoz)
-                        ob_tt_wv = pp.ac.wvlut_interp(attributes['THS'], attributes['THV'], uwv=uwv, sensor=ob_sensor, config=wvlut)
-                        ob_tt_gas = {btag: ob_tt_oz[btag] * ob_tt_wv[btag] for btag in ob_tt_oz.keys()}
-                        band_data /= ob_tt_gas[btag]
+                        if dsf_path_reflectance == 'fixed':
+                            ac_model = attributes['ac_model']
+                            if type(ac_model) == list: ac_model=ac_model[0]
+                            ob_lut = ac_model.split('-')[0:4] + ['1013mb']
+                            ob_lut = '-'.join(ob_lut)
+                            ## get orange band LUT
+                            ob_lutdir = pp.config['pp_data_dir']+'/LUT'
+                            ob_lut_sensor, ob_meta_sensor = pp.aerlut.aerlut_pressure(ob_lut, ob_lutdir, attributes['pressure'], ob_sensor, ob_rsr_file)
+                            ## get atmospheric correction parameters
+                            ratm_o,rorayl_o,dtotr_o,utotr_o,dtott_o,utott_o,astot_o=\
+                            pp.aerlut.lut_get_ac_parameters_fixed_tau_sensor(ob_lut_sensor,ob_meta_sensor,attributes['AZI'],attributes['THV'],attributes['THS'],attributes['ac_aot550'])
+                            ## add atmosphere parameters to attributes
+                            ds_att['ratm'] = ratm_o[btag]
+                            ds_att['rorayl'] = rorayl_o[btag]
+                            ds_att['dtotr'] = dtotr_o[btag]
+                            ds_att['utotr'] = utotr_o[btag]
+                            ds_att['dtott'] = dtott_o[btag]
+                            ds_att['utott'] = utott_o[btag]
+                            ds_att['astot'] = astot_o[btag]
+                        elif dsf_path_reflectance == 'tiled':
+                            ttg_cur = 1.0 ## gas correction done below
+                            ## interpolate tiles to full scene extent
+                            ratm_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['ratm'], xnew, ynew)
+                            astot_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['astot'], xnew, ynew)
+                            dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][btag]['dtott']*tile_output['atm'][btag]['utott'], xnew, ynew)
+                            if dsf_write_tiled_parameters:
+                                pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(ob_wave), ratm_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(ob_wave), dutott_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(ob_wave), astot_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                l2r_nc_new = False
 
-                    if sky_correction:
-                        metadata_O =metadata.copy()
-                        metadata_O["SATELLITE_SENSOR"] = ob_sensor
-                        rsky_O = pp.ac.toa_rsky(metadata_O, pressure=pressure)
-                        if sky_correction_option == 'all':
-                            band_data -= rsky_O[btag]
+                        ## write Rayleigh corrected reflectance
+                        if nc_write_rhorc:
+                            rrc_cur = (band_data - rorayl_o[btag]) / (dtotr_o[btag]*utotr_o[btag])
+                            rrc_cur[valid_mask == 0] = nan
+                            pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(ob_wave), rrc_cur, new=new, attributes=attributes, dataset_attributes=ds_att)
+                            rrc_cur = None
+                            new=False
+
+                        if gas_transmittance:
+                            ob_tt_oz = pp.ac.o3_transmittance(ob_sensor, metadata, uoz=uoz)
+                            ob_tt_wv = pp.ac.wvlut_interp(attributes['THS'], attributes['THV'], uwv=uwv, sensor=ob_sensor, config=wvlut)
+                            ob_tt_gas = {btag: ob_tt_oz[btag] * ob_tt_wv[btag] for btag in ob_tt_oz.keys()}
+                            band_data /= ob_tt_gas[btag]
+
+                        if sky_correction:
+                            metadata_O =metadata.copy()
+                            metadata_O["SATELLITE_SENSOR"] = ob_sensor
+                            rsky_O = pp.ac.toa_rsky(metadata_O, pressure=pressure)
+                            if sky_correction_option == 'all':
+                                band_data -= rsky_O[btag]
+
+                        ## compute surface reflectance
+                        if dsf_path_reflectance == 'fixed':
+                            rhos_data = pp.rtoa_to_rhos(band_data, ratm_o[btag], utott_o[btag], dtott_o[btag], astot_o[btag], tt_gas = 1)
+                        elif dsf_path_reflectance == 'tiled':
+                            rhos_data = (band_data/ttg_cur) - ratm_cur
+                            rhos_data = (rhos_data) / (dutott_cur + astot_cur * rhos_data)
+                        band_data = None
+                    else:
+                        rhos_data = band_data * 1.0
+                        band_data = None
 
                     ## write surface reflectance
-                    if dsf_path_reflectance == 'fixed':
-                        rhos_data = pp.rtoa_to_rhos(band_data, ratm_o[btag], utott_o[btag], dtott_o[btag], astot_o[btag], tt_gas = 1)
-                    elif dsf_path_reflectance == 'tiled':
-                        rhos_data = (band_data/ttg_cur) - ratm_cur
-                        rhos_data = (rhos_data) / (dutott_cur + astot_cur * rhos_data)
-                    band_data = None
+                    rhos_data[valid_mask == 0] = nan
                     pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(ob_wave), rhos_data, dataset_attributes=ds_att)
                     rhos_data = None
                 else:
