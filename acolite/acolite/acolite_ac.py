@@ -35,7 +35,7 @@
 ##                2018-10-24 (QV) fixed rhorc output for EXP
 ##                2018-10-30 (QV) added oxygen transmittance, renamed band list, fixed cirrus band (toa) output
 ##                2018-11-19 (QV) fixed the glint correction transmittance scaling
-
+##                                fixed tile size for processing s2 at 20 and 60 m
 def acolite_ac(bundle, odir, 
                 scene_name=False,
                 limit=None,
@@ -310,10 +310,10 @@ def acolite_ac(bundle, odir,
         if "S2B" in metadata['SATELLITE_SENSOR']:
             gains_dict = {bn:gains_s2b_msi[bi] for bi,bn in enumerate(ordered_bands)}
         bands_skip_corr = ['B9','B10']
-        if dsf_tile_dims is None:
-            dsf_tile_dims = [603,603] # 6x6 km
         if s2_target_res == None:
             s2_target_res = 10
+        if dsf_tile_dims is None:
+            dsf_tile_dims = [int(603 * 10/float(s2_target_res)),int(603 * 10/float(s2_target_res))] # 6x6 km
     else:
         print('Sensor family {} not configured.'.format(sensor_family))
 
