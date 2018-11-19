@@ -16,11 +16,14 @@
 ##                2018-05-07 (QV) added override keyword
 ##                2018-06-06 (QV) added support for xy outputs
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-10-24 (QV) fixed s2 grid name formatting
+##                2018-11-19 (QV) fixed cirrus band output
+
 def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
                      nc_write_geo_xy = False, 
                      l8_output_pan=False, l8_output_pan_ms=False, override = True):
     import acolite as pp
-    from numpy import nanmean
+    from numpy import nanmean, nan
     from scipy.ndimage import zoom
     import time, os
 
@@ -71,7 +74,7 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
 
         ## get RSR wavelengths
         swaves = pp.shared.sensor_wave(metadata['SATELLITE_SENSOR'])
-        swavesl = [swaves[b] for b in swaves]
+        swavesl = [swaves[b] if b in swaves else nan for b in bands]
 
         ## run through granules (will be one for Landsat, almost always one for S2 - old style S2 files not tested)
         for granule in granules:
@@ -126,8 +129,8 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
                         grids, proj4_string = grids
                         sub = grids['{}'.format(s2_target_res)]['sub']
                         ## get "extended" xyranges
-                        xrange = grids['grids_region'][s2_target_res]['xrange']
-                        yrange = grids['grids_region'][s2_target_res]['yrange']
+                        xrange = grids['grids_region']['{}'.format(s2_target_res)]['xrange']
+                        yrange = grids['grids_region']['{}'.format(s2_target_res)]['yrange']
 
                 else:
                     p, (grids), proj4_string = pp.sentinel.geo.get_projection(grmeta)
@@ -253,7 +256,7 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
                         ds_att = {'band_name':band_name}
                     else:
                         band_data = pp.landsat.get_rtoa(bundle, metadata, band_name, sub=sub)
-                        wave = metadata['WAVES_ALL'][b]
+                        wave = swavesl[b] #metadata['WAVES_ALL'][b]
                         oname = 'rhot_{}'.format(wave)
                         ds_att = {'wavelength':float(wave),'band_name':band_name}
 
