@@ -36,6 +36,7 @@
 ##                2018-10-30 (QV) added oxygen transmittance, renamed band list, fixed cirrus band (toa) output
 ##                2018-11-19 (QV) fixed the glint correction transmittance scaling
 ##                                fixed tile size for processing s2 at 20 and 60 m
+##                                fixed output of exp method when l1r file is present
 def acolite_ac(bundle, odir, 
                 scene_name=False,
                 limit=None,
@@ -1328,7 +1329,6 @@ def acolite_ac(bundle, odir,
                     l2_negatives = (rhos_data*0).astype(int32)
                 if wave < neg_wave:
                     l2_negatives[rhos_data < 0] = 2**1
-
                 rhos_data = None                 
                 band_data = None
                 ## end band loop
@@ -1384,7 +1384,7 @@ def acolite_ac(bundle, odir,
                     lon, lat = pp.sentinel.geo.get_ll(grmeta, limit=limit, resolution=s2_target_res)
 
                 ### write to L1R NCDF
-                if os.path.exists(l1r_ncfile):
+                if os.path.exists(l1r_ncfile) & l1r_read_nc:
                     pp.output.nc_write(l1r_ncfile, 'lon', lon)
                     pp.output.nc_write(l1r_ncfile, 'lat', lat)
                 ### write to L2R NCDF
