@@ -6,15 +6,15 @@
 ## modifications: 2017-10-24 (QV) added kind keyword
 ##                2017-12-05 (QV) added test if data is missing
 ##                2018-07-18 (QV) changed acolite import name
-
-def ancillary_get(date, lon, lat, ftime=12.0, local_dir=None, quiet=True, kind='linear'):
+##                2018-11-19 (QV) added verbosity option
+def ancillary_get(date, lon, lat, ftime=12.0, local_dir=None, quiet=True, kind='linear', verbosity=0):
     import acolite as pp
     
     if local_dir == None: local_dir=pp.config['met_dir']
     
     ## list and download files
     anc_files = pp.ac.ancillary.ancillary_list(date)
-    anc_local = pp.ac.ancillary.ancillary_download(ancillary_files=anc_files, local_dir = local_dir, quiet=quiet)
+    anc_local = pp.ac.ancillary.ancillary_download(ancillary_files=anc_files, local_dir = local_dir, verbosity=verbosity)
     
     ## get ozone file
     auraomi_file = [anc_local[i] for i, j in enumerate(anc_local) if "AURAOMI" in j]

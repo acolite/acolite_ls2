@@ -147,6 +147,7 @@ def acolite_ac(bundle, odir,
                 chunking=True,
                 
                 ## debugging
+                verbosity=0,
                 ret_rdark=False):
 
     import acolite as pp
@@ -481,7 +482,7 @@ def acolite_ac(bundle, odir,
             pc_date = metadata['TIME'].strftime('%Y-%m-%d')
             pc_time=metadata['TIME'].hour + metadata['TIME'].minute/60. + metadata['TIME'].second/3600.
             try:
-                pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest')
+                pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest', verbosity=verbosity)
             except:
                 pc_anc = {}
                 print('Could not retrieve ancillary data, proceeding with default values.')

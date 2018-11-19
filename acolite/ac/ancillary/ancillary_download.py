@@ -5,9 +5,10 @@
 ## 2017-10-17
 ## modifications:
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-11-19 (QV) added verbosity option, fixed the download_file script for the GUI
 def ancillary_download(date=None, ancillary_files=None, time=None, 
                        file_types = ['TOAST','O3_AURAOMI_24h','MET_NCEP_6h','MET_NCEP_NEXT'], 
-                       local_dir = "/storage/Data/MET", download=True, override = False, quiet=True,
+                       local_dir = "/storage/Data/MET", download=True, override = False, verbosity=0, 
                        get_url = "https://oceandata.sci.gsfc.nasa.gov/cgi/getfile"):
     
     import os
@@ -34,18 +35,18 @@ def ancillary_download(date=None, ancillary_files=None, time=None,
             if download:
                 ## download file
                 if os.path.exists(local_file) & (not override):
-                    if quiet is False: print('File {} exists'.format(basefile))
+                    if verbosity > 1: print('File {} exists'.format(basefile))
                     local_files.append(local_file)
                 else:
                     if os.path.exists(os.path.dirname(local_file)) is False:
                         os.makedirs(os.path.dirname(local_file))
 
-                    if quiet is False: print('Downloading file {}'.format(basefile))
+                    if verbosity > 0: print('Downloading file {}'.format(basefile))
 
                     try:
                         #urllib.request.urlretrieve(url_file, local_file)
                         download_file(url_file, local_file)
-                        if quiet is False: print('Finished downloading file {}'.format(basefile))
+                        if verbosity > 0: print('Finished downloading file {}'.format(basefile))
                         local_files.append(local_file)
                     except:
                         print('Downloading file {} failed'.format(basefile))
