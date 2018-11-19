@@ -6,13 +6,19 @@
 ##                2017-11-27 (QV) added extent_limit keyword: return larger lat/lon if requested limit extends over the scene
 ##                2018-06-06 (QV) changed xy output
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-10-01 (QV) added grid cell size option
 
 def get_ll(metadata, limit=None, xy=False, extend_limit=False):
     from numpy import linspace, tile, flipud
     from acolite.landsat.geo import get_sub
     from acolite.landsat.geo import get_projection
 
-    pixelsize = [float(metadata["GRID_CELL_SIZE_REFLECTIVE"])]*2
+    if 'GRID_CELL_SIZE_REFLECTIVE' in metadata:
+        pixelsize = [float(metadata["GRID_CELL_SIZE_REFLECTIVE"])]*2
+    elif 'GRID_CELL_SIZE_REF' in metadata:
+        pixelsize = [float(metadata["GRID_CELL_SIZE_REF"])]*2
+    else:
+        return(1)
 
     if limit is not None:
         sub, p, (xrange, yrange, grid_region), proj4_string = get_sub(metadata, limit)

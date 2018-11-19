@@ -8,12 +8,20 @@
 ##                2018-02-08 (QV) tried fixing the cropping southern Y edge error
 ##                 2018-06-06 (QV) added return of Proj4 string
 ##                2018-07-18 (QV) changed acolite import name
+##                2018-10-01 (QV) added grid cell size option
 
 def get_sub(metadata, limit):
     from acolite.landsat.geo import get_projection
 
     dims = metadata["DIMS"]
-    pixelsize = [float(metadata["GRID_CELL_SIZE_REFLECTIVE"])]*2
+
+    if 'GRID_CELL_SIZE_REFLECTIVE' in metadata:
+        pixelsize = [float(metadata["GRID_CELL_SIZE_REFLECTIVE"])]*2
+    elif 'GRID_CELL_SIZE_REF' in metadata:
+        pixelsize = [float(metadata["GRID_CELL_SIZE_REF"])]*2
+    else:
+        return(1)
+
     p, (xscene,yscene), proj4_string = get_projection(metadata)
         
     ## compute x and y limits, round to pixel sizes

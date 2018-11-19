@@ -5,6 +5,7 @@
 ## modifications: (QV) 2017-06-15 changed band removal
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-01 (QV) removed obsolete bits
+##                                added ALI
 
 def metadata_parse(bundle):
     import dateutil.parser
@@ -31,13 +32,17 @@ def metadata_parse(bundle):
         if 'LANDSAT_PRODUCT_ID' in mdata['METADATA_FILE_INFO'].keys(): metadata['PRODUCT'] = mdata['METADATA_FILE_INFO']['LANDSAT_PRODUCT_ID']
 
         metadata['PROCESSING_DATE'] = mdata['METADATA_FILE_INFO']['FILE_DATE']
+
+
+
         metadata['ISODATE'] = '{}T{}Z'.format(mdata['PRODUCT_METADATA']['DATE_ACQUIRED'].strip('"'),mdata['PRODUCT_METADATA']['SCENE_CENTER_TIME'].strip('"'))
 
         ### get projection info
         metadata["PATH"] = mdata['PRODUCT_METADATA']['WRS_PATH'].strip('"')
         metadata["ROW"] = mdata['PRODUCT_METADATA']['WRS_ROW'].strip('"')
+
         metadata["DIMS"] = [int(mdata['PRODUCT_METADATA']['REFLECTIVE_SAMPLES'].strip('"')),
-                        int(mdata['PRODUCT_METADATA']['REFLECTIVE_LINES'].strip('"'))]
+                            int(mdata['PRODUCT_METADATA']['REFLECTIVE_LINES'].strip('"'))]
 
         tags = ['CORNER_LL_PROJECTION_X_PRODUCT', 'CORNER_LL_PROJECTION_Y_PRODUCT',
                 'CORNER_LR_PROJECTION_X_PRODUCT', 'CORNER_LR_PROJECTION_Y_PRODUCT',
@@ -69,13 +74,46 @@ def metadata_parse(bundle):
         metadata['SCENE'] = mdata['PRODUCT_METADATA']['METADATA_L1_FILE_NAME']
 
         metadata['PROCESSING_DATE'] = mdata['METADATA_FILE_INFO']['PRODUCT_CREATION_TIME']
-        metadata['ISODATE'] = '{}T{}Z'.format(mdata['PRODUCT_METADATA']['ACQUISITION_DATE'].strip('"'),mdata['PRODUCT_METADATA']['SCENE_CENTER_SCAN_TIME'].strip('"'))
+        
+        ## ALI image
+        if (metadata["SATELLITE"] == 'EO1') & (metadata["SENSOR"]  == 'ALI'):
+            metadata['ISODATE'] = '{}T{}Z'.format(mdata['PRODUCT_METADATA']['ACQUISITION_DATE'].replace('-','/'),mdata['PRODUCT_METADATA']['START_TIME'].split()[-1])
 
-        ### get projection info
-        metadata["PATH"] = mdata['PRODUCT_METADATA']['WRS_PATH'].strip('"')
-        metadata["ROW"] = mdata['PRODUCT_METADATA']['STARTING_ROW'].strip('"')
-        metadata["DIMS"] = [int(mdata['PRODUCT_METADATA']['PRODUCT_SAMPLES_REF'].strip('"')),
-                        int(mdata['PRODUCT_METADATA']['PRODUCT_LINES_REF'].strip('"'))]
+            metadata["PATH"] = 'UNK'
+            metadata["ROW"] = 'UNK'
+            metadata["DIMS"] = [int(mdata['PRODUCT_METADATA']['PRODUCT_SAMPLES_REF'].strip('"')),
+                                int(mdata['PRODUCT_METADATA']['PRODUCT_LINES_REF'].strip('"'))]
+            ## get rescaling
+            ali_bands={'BAND1':'Pan', 'BAND2':'1p', 'BAND3':'1', 'BAND4':'2', 
+               'BAND5':'3', 'BAND6':'4', 'BAND7':'4p', 'BAND8':'5p', 
+               'BAND9':'5', 'BAND10':'7'}
+
+            bands = set()
+            for key in mdata['RADIANCE_SCALING'].keys():
+                metadata[key] = float(mdata['RADIANCE_SCALING'][key])
+                band = key.split('_')[0]
+                bands.add(ali_bands[band])
+            bands=list(bands)
+            bands.sort()
+        else:
+            metadata['ISODATE'] = '{}T{}Z'.format(mdata['PRODUCT_METADATA']['ACQUISITION_DATE'].strip('"'),mdata['PRODUCT_METADATA']['SCENE_CENTER_SCAN_TIME'].strip('"'))
+
+            ### get projection info
+            metadata["PATH"] = mdata['PRODUCT_METADATA']['WRS_PATH'].strip('"')
+            metadata["ROW"] = mdata['PRODUCT_METADATA']['STARTING_ROW'].strip('"')
+            metadata["DIMS"] = [int(mdata['PRODUCT_METADATA']['PRODUCT_SAMPLES_REF'].strip('"')),
+                                int(mdata['PRODUCT_METADATA']['PRODUCT_LINES_REF'].strip('"'))]
+
+            ## get rescaling
+            bands = set()
+            for key in mdata['MIN_MAX_RADIANCE'].keys():
+                metadata[key] = float(mdata['MIN_MAX_RADIANCE'][key])
+                bands.add(key[-1]) ## add optical bands to list
+            for key in mdata['MIN_MAX_PIXEL_VALUE'].keys():
+                metadata[key] = float(mdata['MIN_MAX_PIXEL_VALUE'][key])
+            print(bands)
+
+        ### get scene extent
         tags = ["PRODUCT_UL_CORNER_LAT","PRODUCT_UL_CORNER_LON",
                 "PRODUCT_UR_CORNER_LAT","PRODUCT_UR_CORNER_LON",
                 "PRODUCT_LL_CORNER_LAT","PRODUCT_LL_CORNER_LON",
@@ -86,21 +124,13 @@ def metadata_parse(bundle):
                 "PRODUCT_LR_CORNER_MAPX","PRODUCT_LR_CORNER_MAPY"]
         for tag in tags: metadata[tag] = float(mdata['PRODUCT_METADATA'][tag])
 
-        ## get rescaling
-        bands = set()
-        for key in mdata['MIN_MAX_RADIANCE'].keys():
-            metadata[key] = float(mdata['MIN_MAX_RADIANCE'][key])
-            bands.add(key[-1]) ## add optical bands to list
-        for key in mdata['MIN_MAX_PIXEL_VALUE'].keys():
-            metadata[key] = float(mdata['MIN_MAX_PIXEL_VALUE'][key])
-        print(bands)
-
     ### common things
     metadata["TIME"] = dateutil.parser.parse(''.join([metadata["ISODATE"]]))
     metadata["DOY"] = metadata["TIME"].strftime('%j')
     metadata["SE_DISTANCE"] = distance_se(metadata['DOY'])
     for key in mdata['PROJECTION_PARAMETERS'].keys():
         metadata[key] = mdata['PROJECTION_PARAMETERS'][key]
+    if 'UTM_PARAMETERS' in mdata: metadata['UTM_ZONE']=mdata['UTM_PARAMETERS']['ZONE_NUMBER']
 
     ## set up bands
     metadata['BANDS']=list(bands)
@@ -150,6 +180,12 @@ def metadata_parse(bundle):
         metadata['BANDS_THERMAL'] = ['6']
         metadata['BAND_NAMES_ALL'] = ['1','2','3','4','5','6','7']
         metadata['WAVES_ALL']= [479, 561, 661, 835, 1650, 10000, 2208]
+
+    if metadata['SATELLITE'] == 'EO1':
+        metadata['SATELLITE_SENSOR'] = 'EO1_ALI'
+        metadata['BANDS_BESTFIT'] = ['5','7']
+        metadata['BANDS_ALL'] = ['1p', '1', '2', '3', '4', '4p', '5p', '5', '7'] # 'Pan'
+        metadata['WAVES_ALL']= [442, 485, 567, 660, 790, 866, 1244, 1640, 2226]
 
     ## make F0 for bands
     f0 = f0_sensor(metadata['SATELLITE_SENSOR'])

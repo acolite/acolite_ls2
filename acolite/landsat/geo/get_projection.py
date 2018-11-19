@@ -10,12 +10,28 @@ def get_projection(metadata):
     #import osr
     from pyproj import Proj
 
-    pixelsize = [float(metadata["GRID_CELL_SIZE_REFLECTIVE"])]*2
-    
+    if 'GRID_CELL_SIZE_REFLECTIVE' in metadata:
+        pixelsize = [float(metadata["GRID_CELL_SIZE_REFLECTIVE"])]*2
+    elif 'GRID_CELL_SIZE_REF' in metadata:
+        pixelsize = [float(metadata["GRID_CELL_SIZE_REF"])]*2
+    else:
+        return(1)
+
     proj = metadata['MAP_PROJECTION']
-    ellipsoid = metadata['ELLIPSOID']
-    datum = metadata['DATUM']
-    
+    if 'ELLIPSOID' in metadata:
+        ellipsoid = metadata['ELLIPSOID']
+    elif 'REFERENCE_ELLIPSOID' in metadata:
+        ellipsoid = metadata['REFERENCE_ELLIPSOID']
+    else:
+        return(1)
+
+    if 'DATUM' in metadata:
+        datum = metadata['DATUM']
+    elif 'REFERENCE_DATUM' in metadata:
+        datum = metadata['REFERENCE_DATUM']
+    else:
+        return(1)
+
     if (proj == 'UTM') & (ellipsoid == 'WGS84') & (datum == 'WGS84'): is_utm = True
     else: is_utm = False
         
@@ -26,6 +42,7 @@ def get_projection(metadata):
     
     if is_utm:
         zone = int(metadata['UTM_ZONE'])
+
         #p = Proj(proj='utm',zone=zone,ellps=ellipsoid)
         proj4_list = ['+proj=utm',
                       '+zone={}'.format(zone),
@@ -57,8 +74,18 @@ def get_projection(metadata):
     ## check corners of image
     x,y = [],[]
     for corner in ['LL','UL','UR','LR']:
-            x.append(metadata['CORNER_{}_PROJECTION_X_PRODUCT'.format(corner)])
-            y.append(metadata['CORNER_{}_PROJECTION_Y_PRODUCT'.format(corner)])
+            xtag = 'CORNER_{}_PROJECTION_X_PRODUCT'.format(corner)
+            if xtag in metadata: 
+                x.append(metadata[xtag])
+            else:
+                xtag = 'PRODUCT_{}_CORNER_MAPX'.format(corner)
+                x.append(metadata[xtag])
+            ytag = 'CORNER_{}_PROJECTION_Y_PRODUCT'.format(corner)
+            if ytag in metadata: 
+                y.append(metadata[ytag])
+            else:
+                ytag = 'PRODUCT_{}_CORNER_MAPY'.format(corner)
+                y.append(metadata[ytag])
 
     xrange = [min(x),max(x)]
     yrange = [min(y),max(y)]
