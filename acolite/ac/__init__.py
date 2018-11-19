@@ -10,5 +10,8 @@ from .tiles_interp import tiles_interp
 from .wvlut_get import wvlut_get
 from .wvlut_interp import wvlut_interp
 
+from .o2lut_get import o2lut_get
+from .o2lut_interp import o2lut_interp
+
 from . import ancillary
 from .rayleigh import *

@@ -1,6 +1,7 @@
 from .aerlut_pressure import aerlut_pressure
 
 from .get_sensor_lut import get_sensor_lut 
+from .interp2d import interp2d
 from .interp3d import interp3d
 from .interplut_sensor import interplut_sensor
 
