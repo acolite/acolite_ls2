@@ -7,6 +7,7 @@ added_files = []
 hiddenimports=['scipy._lib.messagestream','pandas._libs.tslibs.timedeltas']
 hiddenimports+=['cftime']
 hiddenimports+=['pandas._libs.tslibs.np_datetime','pandas._libs.tslibs.nattype','pandas._libs.skiplist']
+hiddenimports+=['pywt._extensions._cwt']
 
 a = Analysis(['launch_acolite.py'],
              #pathex=['/storage/Python/acolite'],
