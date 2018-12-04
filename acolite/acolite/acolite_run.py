@@ -149,6 +149,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         glint_write_rhog_all = setu['glint_write_rhog_all'],
 
                                                         pressure=setu['pressure'],
+                                                        elevation=setu['elevation'],
                                                         lut_pressure=setu['lut_pressure'],
                                                         dem_pressure=setu['dem_pressure'],
                                                         dem_pressure_percentile=setu['dem_pressure_percentile'],

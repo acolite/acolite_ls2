@@ -18,6 +18,7 @@ gas_transmittance=True
 uoz_default=0.3
 uwv_default=1.5
 pressure=None
+elevation=None
 lut_pressure=True
 dem_pressure=False
 dem_pressure_percentile=25

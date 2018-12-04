@@ -37,6 +37,8 @@
 ##                2018-11-19 (QV) fixed the glint correction transmittance scaling
 ##                                fixed tile size for processing s2 at 20 and 60 m
 ##                                fixed output of exp method when l1r file is present
+##                2018-12-04 (QV) fixed DEM support, added elevation input options
+
 def acolite_ac(bundle, odir, 
                 scene_name=False,
                 limit=None,
@@ -51,7 +53,8 @@ def acolite_ac(bundle, odir,
                 fixed_lut='PONDER-LUT-201704-MOD2-1013mb',
                 bestfit='bands',
                 bestfit_bands=None,
-                pixel_range_min=0, pixel_range_max=1000,
+                pixel_range_min=0, 
+                pixel_range_max=1000,
                 #map_dark_pixels = False,
 
                 ## ACOLITE dark_spectrum settings
@@ -98,6 +101,7 @@ def acolite_ac(bundle, odir,
                 dem_pressure = False,
                 dem_pressure_percentile = 25, 
                 pressure = None,
+                elevation = None, 
                 
                 ## apply gas corrections at TOA
                 gas_transmittance = True, 
@@ -174,9 +178,6 @@ def acolite_ac(bundle, odir,
         try:
             metadata = pp.landsat.metadata_parse(bundle)
             data_type = "Landsat"
-            #if metadata['NEW_STYLE'] is False:
-            #     print('Old style Landsat not yet configured {}.'.format(bundle))
-            #     return(1)
         except:
             data_type = None
         
@@ -464,7 +465,11 @@ def acolite_ac(bundle, odir,
             demp = pp.ac.pressure_elevation(dem, ratio=False)
             ## use percentile pressure
             pressure = nanpercentile(demp, dem_pressure_percentile)
-            
+
+        ## use given elevation
+        if (pressure == None) & (lut_pressure) & (elevation is not None):
+            pressure = pp.ac.pressure_elevation(float(elevation), ratio=False)
+
         ## get NCEP & TOAST ancillary data
         if ancillary_data:
             if ('lat' not in locals()) or ('lat' not in locals()):

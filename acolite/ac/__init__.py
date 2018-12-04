@@ -15,3 +15,4 @@ from .o2lut_interp import o2lut_interp
 
 from . import ancillary
 from .rayleigh import *
+from .pressure_elevation import pressure_elevation
