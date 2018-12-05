@@ -657,7 +657,6 @@ def acolite_ac(bundle, odir,
                 for b,band_name in enumerate(ordered_bands):
                     ## read band data
                     if band_name in bands_skip_thermal: continue
-                    if band_name in bands_skip_corr: continue
 
                     ## set up band parameter
                     wave = band_dict[band_name]['wave']
@@ -690,6 +689,9 @@ def acolite_ac(bundle, odir,
                                 pp.output.nc_write(l1r_ncfile, parname, band_full, dataset_attributes=ds_att,
                                                    new=l1r_nc_new, global_dims=global_dims, nc_compression=l1r_nc_compression)
                             l1r_nc_new=False
+                            
+                    ## skip here so the cirrus and wv bands are output to L1R
+                    if band_name in bands_skip_corr: continue
 
                     if (gains) & (band_name in gains_dict):
                         band_full *= gains_dict[band_name]
