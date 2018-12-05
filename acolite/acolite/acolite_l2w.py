@@ -18,9 +18,10 @@
 ##                                     added l2w_mask_negative_rhow keyword
 ##                                     added FAIT
 ##                     2018-07-25 (QV) added FAIT external config
+##                     2018-12-05 (QV) added cirrus masking
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
-                l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True,
+                l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
                 nc_compression=True, chunking=True):
     import os
     import datetime, time
@@ -77,6 +78,18 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 l2_flags = mask.astype(int32)*(2**0)
             else:
                 l2_flags += mask.astype(int32)*(2**0)
+
+            ## mask cirrus clouds
+            if l2w_mask_cirrus:
+                cidx,cwave = closest_idx(rhot_waves, l2w_mask_cirrus_wave)
+                if abs(l2w_mask_cirrus_wave - float(cwave)) < 5:
+                    cirrus_mask = nc_data(inputfile, "rhot_{}".format(cwave)) > float(l2w_mask_cirrus_threshold)
+                    l2_flags += cirrus_mask.astype(int32)*(2**1)
+                    cirrus_mask = None
+                else:
+                    print('No suitable band found for cirrus masking.')
+
+            ## masking for L2W parameters
             mask = l2_flags != 0
 
         ## make outputfile

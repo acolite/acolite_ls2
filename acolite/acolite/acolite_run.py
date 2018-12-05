@@ -253,13 +253,14 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
             for sc, scene in enumerate(l2r_files):
                 print('Computing L2W parameters for scene {} of {}...'.format(sc+1, l2r_nsc))
-                print(scene)
                 ret = acolite.acolite_l2w(scene, setu['output'], parameters=setu['l2w_parameters'], retain_data_read=True,
                                           l2w_mask=setu['l2w_mask'],
                                           l2w_mask_wave=float(setu['l2w_mask_wave']),
                                           l2w_mask_threshold=float(setu['l2w_mask_threshold']),
                                           l2w_mask_water_parameters=setu['l2w_mask_water_parameters'],
                                           l2w_mask_negative_rhow=setu['l2w_mask_negative_rhow'],
+                                          l2w_mask_cirrus=setu['l2w_mask_cirrus'],
+                                          l2w_mask_cirrus_threshold=float(setu['l2w_mask_cirrus_threshold']),
                                           nc_compression=setu['l2w_nc_compression'],)
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
