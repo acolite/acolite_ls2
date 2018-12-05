@@ -141,6 +141,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         sky_correction=setu['sky_correction'],
                                                         sky_correction_option=setu['sky_correction_option'],
 
+                                                        ## glint correction settings
                                                         glint_correction = setu['glint_correction'],
                                                         glint_force_band = setu['glint_force_band'],
                                                         glint_mask_rhos_band = setu['glint_mask_rhos_band'],
@@ -148,6 +149,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         glint_write_rhog_ref = setu['glint_write_rhog_ref'],
                                                         glint_write_rhog_all = setu['glint_write_rhog_all'],
 
+                                                        ## elevation and pressure options
                                                         pressure=setu['pressure'],
                                                         elevation=setu['elevation'],
                                                         lut_pressure=setu['lut_pressure'],
@@ -193,6 +195,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         ## NetCDF compression
                                                         l1r_nc_compression=setu['l1r_nc_compression'],
                                                         l2r_nc_compression=setu['l2r_nc_compression'],
+
+                                                        ## resolved angles
+                                                        resolved_angles=setu['resolved_angles'],
+                                                        resolved_angles_write=setu['resolved_angles_write'],
 
                                                         ## Sentinel-2 output resolution
                                                         s2_target_res=setu['s2_target_res'],

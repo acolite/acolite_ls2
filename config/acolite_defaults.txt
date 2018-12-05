@@ -64,6 +64,8 @@ exp_gamma=None
 ##
 s2_target_res=10
 l8_output_bt=False
+resolved_angles=False
+resolved_angles_write=False
 
 ## output of xy easting and northing
 xy_output=False
