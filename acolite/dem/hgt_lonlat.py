@@ -3,15 +3,17 @@
 ## written by Quinten Vanhellemont, RBINS
 ## QV 2017-07-17
 ## modifications:
-## updated 
+## updated 2018-12-04 QV added printing of url to download (USGS server requires login so presently not automated)
 
-def hgt_lonlat(lon1, lat1, nearest=True, hgt_dir=None):
+def hgt_lonlat(lon1, lat1, nearest=True, hgt_dir=None, url_base='http://e4ftl01.cr.usgs.gov/MEASURES/SRTMGL3.003/2000.02.11/{}.SRTMGL3.hgt.zip'):
+
     if hgt_dir is None:
         import acolite as ac
         hgt_dir = ac.config['hgt_dir']
 
+    import os
     from acolite.dem import hgt_find,hgt_read,hgt_geolocation
-    from acolite.shared import reproject2
+    from acolite.shared import reproject2, download_file
 
     ## find dem files
     limit=[0,0,0,0]
@@ -30,6 +32,17 @@ def hgt_lonlat(lon1, lat1, nearest=True, hgt_dir=None):
         limit[2]=lat1.max()
 
     hgt_files, hgt_required = hgt_find(limit, required=True, hgt_dir=hgt_dir)
+
+    if len(hgt_files) != len(hgt_required):
+        print('DEM files not found in {}'.format(hgt_dir))
+        for f in hgt_required:
+            if f in hgt_files: continue
+            f_url = url_base.format(f)
+            f_local = '{}/{}'.format(hgt_dir,os.path.basename(f_url))
+            #tmp = download_file(f_url, f_local)
+            #hgt_files.append(f)
+            print('Please download {} to {}'.format(f_url,f_local))
+        return(0)
 
     ## run through dem files and reproject data to target lat,lon
     for i, hgt_file in enumerate(hgt_files):
