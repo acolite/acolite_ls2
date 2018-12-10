@@ -13,6 +13,7 @@
 ##                     2018-08-02 (QV) added glint correction
 ##                     2018-09-10 (QV) added additional L2W parameter check
 ##                     2018-11-19 (QV) removed the disabling of ancillary data download in GUI
+##                     2018-11-10 (QV) re-disabled the ancillary data download in GUI
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -39,10 +40,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         if ('bt10' in setu['l2w_parameters']) or ('bt11' in setu['l2w_parameters']):
             setu['l8_output_bt'] = True
 
-    #if (gui) & (setu['ancillary_data']): 
-    #    print('Disabling ancillary data in GUI due to download bug.')
-    #    print('Please use the CLI for ancillary download.')
-    #    setu['ancillary_data'] = False
+    if (gui) & (setu['ancillary_data']): 
+        print('Disabling ancillary data in GUI due to download bug.')
+        print('Please use the CLI for ancillary download.')
+        setu['ancillary_data'] = False
 
     ## check if we have an inputfile
     if (setu['inputfile'] is None):
