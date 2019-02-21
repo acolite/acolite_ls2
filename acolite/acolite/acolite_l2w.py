@@ -19,6 +19,7 @@
 ##                                     added FAIT
 ##                     2018-07-25 (QV) added FAIT external config
 ##                     2018-12-05 (QV) added cirrus masking
+##                     2019-02-21 (QV) added l2_flags = None
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
@@ -31,8 +32,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
     from acolite.acolite import l2w_required, acolite_l2w_qaa
     from acolite.output import nc_write
     import acolite as ac
-
+    import skimage
     from numpy import pi, nan, where, log10, isfinite, power, dstack, int32
+    from numpy import mod, arctan2, nanmedian, power
 
     if not os.path.exists(inputfile):
         print('File {} not found.'.format(inputfile))
@@ -51,6 +53,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
         print('File {} is probably not ACOLITE L2R file.'.format(inputfile))
                 
     if parameters is not None:
+        l2_flags = None
 
         ## make mask dataset
         if l2w_mask:
@@ -817,7 +820,6 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
             #################################
             ## FAIT
             if par_name == 'fait':
-                import skimage
                 par_exists = True
                 mask_data = False
                 par_split = par_name.split('_')
@@ -1009,7 +1011,6 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     if len(required_datasets) > 0: 
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         if req:
-                            from numpy import where, nan, mod, pi, arctan2, nanmedian, power
                             yw = 1/3.
                             xw = 1/3.
                             for iw, w in enumerate(req_waves_selected):
