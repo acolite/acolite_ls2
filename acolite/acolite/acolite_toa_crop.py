@@ -18,6 +18,7 @@
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-24 (QV) fixed s2 grid name formatting
 ##                2018-11-19 (QV) fixed cirrus band output
+##                2018-02-21 (QV) fixed S2 band name issue
 
 def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
                      nc_write_geo_xy = False, 
@@ -70,7 +71,7 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
         if os.path.exists(odir) is False: os.makedirs(odir)
 
         ## set up some variables
-        bands = metadata['BAND_NAMES_ALL']
+        bands = [b.strip('B') for b in metadata['BAND_NAMES_ALL']]
 
         ## get RSR wavelengths
         swaves = pp.shared.sensor_wave(metadata['SATELLITE_SENSOR'])
