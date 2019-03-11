@@ -6,6 +6,7 @@
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-01 (QV) removed obsolete bits
 ##                                added ALI
+##                2019-02-28 (QV) improved support for LO8 scenes without TIRS
 
 def metadata_parse(bundle):
     import dateutil.parser
@@ -55,7 +56,6 @@ def metadata_parse(bundle):
                 'CORNER_UL_LAT_PRODUCT', 'CORNER_UL_LON_PRODUCT',
                 'CORNER_UR_LAT_PRODUCT', 'CORNER_UR_LON_PRODUCT']
         for tag in tags: metadata[tag] = float(mdata['PRODUCT_METADATA'][tag])
-
         ## get rescaling
         bands = set()
         for key in mdata['RADIOMETRIC_RESCALING'].keys():
@@ -140,8 +140,9 @@ def metadata_parse(bundle):
     ## some sensor specific config
     if metadata["SATELLITE"] == 'LANDSAT_8':
         ## get TIRS for L8
-        for key in mdata['TIRS_THERMAL_CONSTANTS'].keys():
-            metadata[key] = float(mdata['TIRS_THERMAL_CONSTANTS'][key])
+        if 'TIRS_THERMAL_CONSTANTS' in mdata:
+            for key in mdata['TIRS_THERMAL_CONSTANTS'].keys():
+                metadata[key] = float(mdata['TIRS_THERMAL_CONSTANTS'][key])
         ## bands to remove
         remove_bands = ['8','9','10','11'] ## pan cirrus thermal x2
         for rb in remove_bands:
