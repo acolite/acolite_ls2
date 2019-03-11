@@ -8,6 +8,8 @@
 ##                     2018-04-19 (QV) added RGB pan sharpening option
 ##                     2018-07-18 (QV) changed acolite import name
 ##                     2018-10-24 (QV) changed matplotlib figure call
+##                     2019-03-06 (QV) added plt.close
+##                     2019-03-11 (QV) added strip to parameters
 
 def acolite_map(inputfile=None, output=None, parameters=None, 
                 dpi=300, ext='png', mapped=True, max_dim = 1000, limit=None,
@@ -132,6 +134,7 @@ def acolite_map(inputfile=None, output=None, parameters=None,
             print('Mapping {}'.format(mi))
             if type(parameters) is not list: parameters=[parameters]
             for pid, par in enumerate(parameters):
+                par = par.strip()
                 pard = None
 
                 ## check if this parameter exists
@@ -248,6 +251,7 @@ def acolite_map(inputfile=None, output=None, parameters=None,
                             if map_title: ax.set_title(title)
                             ax.axis('off')
                             canvas.print_figure(outputfile, dpi=dpi, bbox_inches='tight')
+                        plt.close()
                     else:
                         from PIL import Image
                         ## rescale for mapping
@@ -363,6 +367,7 @@ def acolite_map(inputfile=None, output=None, parameters=None,
                     if map_title: ax.set_title(title)
                     ax.axis('off')
                     canvas.print_figure(outputfile, dpi=dpi, bbox_inches='tight')
+                    plt.close()
                 else:
                     from PIL import Image
                     for wi in (0,1,2):
