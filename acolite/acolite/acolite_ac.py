@@ -40,6 +40,7 @@
 ##                2018-12-04 (QV) fixed DEM support, added elevation input options
 ##                2018-12-05 (QV) fixed cirrus and wv band output in tiled processing
 ##                                added resolved_angles for S2 processing
+##                2019-03-12 (QV) global attributes xrange and yrange fixed for limits crossing the scene borders
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -385,7 +386,7 @@ def acolite_ac(bundle, odir,
                 else: 
                     sub, p, (xrange,yrange,grid_region), proj4_string = scene_extent
                 if limit is None: sub=None
-                
+
             ## calculate view azimuth and update metadata
             if metadata['SENSOR'] != 'ALI':
                 view_azi = pp.landsat.view_azimuth(bundle, metadata)
@@ -554,6 +555,15 @@ def acolite_ac(bundle, odir,
         attributes['xrange'] = xrange
         attributes['yrange'] = yrange
         attributes['pixel_size'] = pixel_size
+
+        ## add the used x and yranges to the attributes
+        ## i.e. the ones inside the image
+        ## crop dimensions = (x,y) (sub[2],sub[3])
+        if limit is not None:
+            #attributes['xrange_crop'] = (xrange[0], xrange[0]+(sub[2])*pixel_size[0])
+            #attributes['yrange_crop'] = (yrange[1], yrange[1]-(sub[3])*pixel_size[1])
+            attributes['xrange'] = (xrange[0], xrange[0]+(sub[2])*pixel_size[0])
+            attributes['yrange'] = (yrange[1]-(sub[3])*pixel_size[1], yrange[1])
 
         if 'THS-true' in metadata: attributes['THS-true'] = metadata['THS-true']
 
@@ -1108,7 +1118,8 @@ def acolite_ac(bundle, odir,
                      attributes['{}_utott'.format(band)] = utott_s[band]
                      attributes['{}_astot'.format(band)] = astot_s[band]
 
-                if dsf_plot_dark_spectrum: pp.plotting.plot_dark_spectrum(metadata, ds_plot, bands, ordered_bands, data_type, waves, ratm_s, rorayl_s, rdark, rdark_sel, dsf_spectrum_option, dark_idx, tau550,sel_model_lut_meta)
+                if dsf_plot_dark_spectrum:
+                    pp.plotting.plot_dark_spectrum(metadata, ds_plot, bands, ordered_bands, data_type, ordered_waves, ratm_s, rorayl_s, rdark, rdark_sel, dsf_spectrum_option, dark_idx, tau550,sel_model_lut_meta)
 
                 ## from now on read the l1r NCDF
                 l1r_read_nc = (l1r_nc_write) and (os.path.exists(l1r_ncfile))
@@ -1466,6 +1477,7 @@ def acolite_ac(bundle, odir,
                     l2_negatives = (rhos_data*0).astype(int32)
                 if wave < neg_wave:
                     l2_negatives[rhos_data < 0] = 2**1
+
                 rhos_data = None                 
                 band_data = None
                 ## end band loop
@@ -1583,6 +1595,7 @@ def acolite_ac(bundle, odir,
                     if metadata['SATELLITE'] == 'LANDSAT_7': panband = 8
                     if metadata['SATELLITE'] == 'LANDSAT_8': panband = 8
                     data = pp.landsat.get_rtoa(bundle, metadata, panband, sub=sub, pan=True)
+
                     if data is not None:
                         if l8_output_pan:
                             pp.output.nc_write(l1r_ncfile_pan, parname, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
@@ -1601,7 +1614,7 @@ def acolite_ac(bundle, odir,
                     print('Calculating orange band.')
                     pan_ms = pp.shared.nc_data(l1r_ncfile_pan_ms, 'rhot_pan_ms')
                     pan_wave = swaves['8']
-
+                    
                     ## get nans from toa product
                     valid_mask = isfinite(pan_ms)
 
@@ -1935,4 +1948,5 @@ def acolite_ac(bundle, odir,
             os.remove(l2r_ncfile)
         else:
             l2r_files.append(l2r_ncfile)
+
     return(l2r_files)
