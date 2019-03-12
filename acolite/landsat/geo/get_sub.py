@@ -9,6 +9,7 @@
 ##                 2018-06-06 (QV) added return of Proj4 string
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-01 (QV) added grid cell size option
+##                2019-03-12 (QV) changed the Y extent crop
 
 def get_sub(metadata, limit):
     from acolite.landsat.geo import get_projection
@@ -83,19 +84,10 @@ def get_sub(metadata, limit):
         yoff = [dims[1]-yoff[1], dims[1]-yoff[0]]
         yoff_region = [dims[1]-yoff_region[1], dims[1]-yoff_region[0]]
 
-        ## 6 june 2018
-        #sub = [xoff[0], yoff[0], xoff[1]-xoff[0]+1, yoff[1]-yoff[0]+1]
-        #sub = [int(s) for s in sub]
-
-        ## 6 june 2018
-        #sub_region = [xoff_region[0], yoff_region[0], xoff_region[1]-xoff_region[0]+1, yoff_region[1]-yoff_region[0]+1]
-        #sub_region = [int(s) for s in sub_region]
-
-
-        ## 6 june 2018
-        sub = [xoff[0], yoff[0], xoff[1]-xoff[0]+1, yoff[1]-yoff[0]+1]
+        ## 12 Mar 2019
+        sub = [xoff[0], yoff[0], xoff[1]-xoff[0]+1, yoff[1]-yoff[0]-1]
         sub = [int(s) for s in sub]
-        sub_region = [xoff_region[0], yoff_region[0], xoff_region[1]-xoff_region[0]+1, yoff_region[1]-yoff_region[0]+1]
+        sub_region = [xoff_region[0], yoff_region[0], xoff_region[1]-xoff_region[0]+1, yoff_region[1]-yoff_region[0]-1]
         sub_region = [int(s) for s in sub_region]
 
         off = [sub[0]-sub_region[0], sub[1]-sub_region[1]]
