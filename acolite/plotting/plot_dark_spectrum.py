@@ -5,6 +5,7 @@
 ## modifications: 2018-06-11 (QV) fixed plotting of S2/MSI results
 ##                2018-09-12 (QV) fixed matplotlib import issue
 ##                2018-09-26 (QV) added plt.close() for memory management in long loops
+##                2019-03-12 (QV) slightly changed data selection
 
 def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, ratm_s, rorayl_s, rdark, rdark_sel, dark_spectrum_option, dark_idx, tau550,sel_model_lut_meta):
                 import matplotlib
@@ -18,11 +19,12 @@ def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, r
                 rorayl = []
                 dark = []
                 ds_waves = []
-            
+                idx_list = []
+
                 sensor = metadata['SATELLITE_SENSOR']
                 sat, sen = sensor.split('_')
 
-                for b, band in enumerate(rdark): #_sorted
+                for b,band in enumerate(bands):
                     if data_type == 'NetCDF':
                         btag = '{}'.format(band_names[b].lstrip('B'))
 
@@ -30,26 +32,34 @@ def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, r
                             btag = band
                             idx = [i for i,ib in enumerate(band_names) if ib == 'B{}'.format(btag)]
                         else:
+                            if (sen == 'OLI') & (str(band) in ['8','9','10','11']): continue
                             idx = [i for i,ib in enumerate(band_names) if ib == '{}'.format(band)]
                         
                     if data_type == 'Landsat':
-                        if band_names[b] in ['8','9','10','11']: continue
+                        if str(band) in ['8','9','10','11']: continue
                         idx = [i for i,ib in enumerate(band_names) if ib == '{}'.format(band)]
 
                     if data_type == 'Sentinel':
                         idx = [i for i,ib in enumerate(band_names) if ib == 'B{}'.format(band)]
                     
                     if len(idx) == 1: 
-                        btag = '{}'.format(band_names[idx[0]].lstrip('B'))
-                        if btag not in ratm_s: continue
-                        ds_waves.append(float(waves[idx[0]]))
-                        ratm.append(ratm_s[btag])
-                        rorayl.append(rorayl_s[btag])
-                        if dark_spectrum_option=='dark_list':
-                            dark.append(rdark_sel[btag])
-                        else:
-                            dark.append(rdark[btag])
-                
+                        idx_list.append(idx[0])
+                    
+                ## set up plotting datasets
+                for idx in idx_list:
+                    btag = '{}'.format(band_names[idx].lstrip('B'))
+                    if btag not in ratm_s: continue
+                    if btag not in rdark_sel: continue
+                    if btag not in rdark: continue
+
+                    ds_waves.append(float(waves[idx]))
+                    ratm.append(ratm_s[btag])
+                    rorayl.append(rorayl_s[btag])
+                    if dark_spectrum_option=='dark_list':
+                        dark.append(rdark_sel[btag])
+                    else:
+                        dark.append(rdark[btag])
+
                 if data_type == 'NetCDF':
                     band_title = dark_idx #list(rdark.keys())[dark_idx]
                 if data_type == 'Landsat':
