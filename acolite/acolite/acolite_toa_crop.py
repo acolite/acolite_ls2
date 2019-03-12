@@ -19,6 +19,7 @@
 ##                2018-10-24 (QV) fixed s2 grid name formatting
 ##                2018-11-19 (QV) fixed cirrus band output
 ##                2018-02-21 (QV) fixed S2 band name issue
+##                2018-03-12 (QV) fixed issue with limits extending out of the scene and saving the L8 PAN/MS data
 
 def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
                      nc_write_geo_xy = False, 
@@ -206,6 +207,7 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
                     lon, lat = pp.landsat.geo.get_ll(metadata, limit=limit, extend_limit=True)
                 if data_type == 'Sentinel':
                     lon, lat = pp.sentinel.geo.get_ll(grmeta, limit=limit, extend_limit=True, resolution=s2_target_res)
+                crop_dims = lon.shape
 
                 pp.output.nc_write(ncfile, 'lon', lon, new=new, attributes=attributes, 
                                     nc_compression=nc_compression, chunking=chunking)
@@ -293,12 +295,11 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
 
                     ## write PAN at MS resolution
                     if l8_output_pan_ms:
-                        band_data = zoom(band_data, zoom=0.5, order=1)
                         oname = 'rhot_pan_ms'
-                        pp.output.nc_write(ncfile_pan_ms, oname, band_data, new=new_pan_ms, offset=offset, replace_nan=replace_nan,
+                        band_data = zoom(band_data, zoom=0.5, order=1)
+                        pp.output.nc_write(ncfile_pan_ms, oname, band_data, new=new_pan_ms, global_dims=crop_dims, offset=offset, replace_nan=replace_nan,
                                                    attributes=attributes, nc_compression=nc_compression, chunking=chunking)
                         new_pan_ms=False
-
                     band_data=None
 
     if 'ncfile' in locals(): return(ncfile)
