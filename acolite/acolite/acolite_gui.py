@@ -5,6 +5,8 @@
 ## modifications: 2018-03-07 (QV) added *args
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-09-12 (QV) updated relative path to default settings
+##                2019-03-13 (QV) happy new year!
+
 def acolite_gui(*args, version=None):
     import os
     import argparse
@@ -246,7 +248,7 @@ def acolite_gui(*args, version=None):
             ####
 
             ### copyright label
-            l = tk.Label(self, text='(c) 2014-2018 RBINS')
+            l = tk.Label(self, text='(c) 2014-2019 RBINS')
             l.grid(row=7, column=0, sticky='e')
             ###
 
