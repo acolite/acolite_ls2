@@ -7,6 +7,7 @@
 ##                2018-10-01 (QV) removed obsolete bits
 ##                                added ALI
 ##                2019-02-28 (QV) improved support for LO8 scenes without TIRS
+##                2019-03-26 (QV) fixed issue with time parsing
 
 def metadata_parse(bundle):
     import dateutil.parser
@@ -125,7 +126,7 @@ def metadata_parse(bundle):
         for tag in tags: metadata[tag] = float(mdata['PRODUCT_METADATA'][tag])
 
     ### common things
-    metadata["TIME"] = dateutil.parser.parse(''.join([metadata["ISODATE"]]))
+    metadata["TIME"] = dateutil.parser.parse(''.join([metadata["ISODATE"]]).replace("Z", ''))
     metadata["DOY"] = metadata["TIME"].strftime('%j')
     metadata["SE_DISTANCE"] = distance_se(metadata['DOY'])
     for key in mdata['PROJECTION_PARAMETERS'].keys():
