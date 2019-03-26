@@ -14,6 +14,7 @@
 ##                     2018-09-10 (QV) added additional L2W parameter check
 ##                     2018-11-19 (QV) removed the disabling of ancillary data download in GUI
 ##                     2018-11-10 (QV) re-disabled the ancillary data download in GUI
+##                     2019-03-26 (QV) added check for returned l2r files
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -214,7 +215,9 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         ## output Rayleigh corrected reflectances
                                                         nc_write_rhorc=nc_write_rhorc
                                                         )
-        l2r_files+=ret
+        if type(ret) is not int: 
+            l2r_files+=ret
+        else: continue
 
         ## output GeoTIFF
         if (setu['l2r_export_geotiff']) & (len(ret) > 0):
