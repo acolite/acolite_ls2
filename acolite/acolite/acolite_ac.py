@@ -185,7 +185,6 @@ def acolite_ac(bundle, odir,
             data_type = None
 
     if data_type is None:
-        metadata = pp.landsat.metadata_parse(bundle)
         try:
             metadata = pp.landsat.metadata_parse(bundle)
             data_type = "Landsat"
