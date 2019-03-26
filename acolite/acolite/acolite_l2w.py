@@ -20,6 +20,7 @@
 ##                     2018-07-25 (QV) added FAIT external config
 ##                     2018-12-05 (QV) added cirrus masking
 ##                     2019-02-21 (QV) added l2_flags = None
+##                     2019-03-26 (QV) added some CF names
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
@@ -168,6 +169,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 
                 if par_split[1] == 'nechad':
                     par_attributes = {'algorithm':'Nechad et al. 2010', 'title':'Nechad SPM'}
+                    par_attributes['standard_name']='spm'
+                    par_attributes['long_name']='Suspended Particulate Matter'
+                    par_attributes['units']='g m^-3'
+                    par_attributes['reference']='Nechad et al. 2010'
+                    par_attributes['algorithm']=''
+
                     ### get required datasets
                     if len(par_split) > 2:
                         required_datasets = ['rhos_{}'.format(par_split[2])]
@@ -205,6 +212,13 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
                 if par_split[1] == 'nechad2016':
                     par_attributes = {'algorithm':'Nechad et al. 2010, 2016 calibration', 'title':'Nechad SPM'}
+                    par_attributes = {'algorithm':'Nechad et al. 2010', 'title':'Nechad SPM'}
+                    par_attributes['standard_name']='spm'
+                    par_attributes['long_name']='Suspended Particulate Matter'
+                    par_attributes['units']='g m^-3'
+                    par_attributes['reference']='Nechad et al. 2010'
+                    par_attributes['algorithm']='2016 calibration'
+
                     npar = 'SPM'
                     nsen = gatts['sensor'].split('_')[1]
                     ### get required datasets
@@ -250,7 +264,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Nechad et al. 2009'}
-                
+                par_attributes['standard_name']='turbidity'
+                par_attributes['long_name']='Water turbidity'
+                par_attributes['units']='FNU'
+                par_attributes['reference']='Nechad et al. 2009'
+                par_attributes['algorithm']=''
+
                 if par_split[1] == 'nechad':
                     if len(par_split) > 2:
                         if par_split[2].lower() in ['red', 'nir']:
@@ -344,6 +363,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 
                 if par_split[1] == 'nechad2016':
                     par_attributes = {'algorithm':'Nechad et al. 2009, 2016 calibration', 'title':'Nechad TUR'}
+                    par_attributes['standard_name']='turbidity'
+                    par_attributes['long_name']='Water turbidity'
+                    par_attributes['units']='FNU'
+                    par_attributes['reference']='Nechad et al. 2009'
+                    par_attributes['algorithm']='2016 calibration'
+
                     npar = 'TUR'
                     nsen = gatts['sensor'].split('_')[1]
                     ### get required datasets
@@ -388,7 +413,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Dogliotti et al. 2015'}
-                
+                par_attributes['standard_name']='turbidity'
+                par_attributes['long_name']='Water turbidity'
+                par_attributes['units']='FNU'
+                par_attributes['reference']='Dogliotti et al. 2015'
+                par_attributes['algorithm']=''
+
                 ### get required datasets
                 if gatts['sensor'] == 'L5_TM':
                      required_datasets = ['rhos_660','rhos_839']
@@ -461,6 +491,11 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Chlorophyll a blue/green ratio', 'dataset':'rhos'}
+                par_attributes['standard_name']='chlorophyll_concentration'
+                par_attributes['long_name']='Chlorophyll a concentration derived from blue green ratio'
+                par_attributes['units']='mg m^-3'
+                par_attributes['reference']='Franz et al. 2015'
+                par_attributes['algorithm']=''
                 ds_waves = [w for w in rhos_waves]
 
                 chl_oc = coef_chl_oc()
@@ -484,6 +519,10 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         if reqw in green_wave: 
                             green_wave_sel.append(selwave)
                             required_datasets.append(selds)
+
+                    print('blue',blue_wave_sel)
+                    print('green', green_wave_sel)
+                    print(chl_coef)
 
                     ## store selections
                     par_attributes['blue']=blue_wave_sel
@@ -540,12 +579,19 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Red-edge chlorophyll', 'dataset':'rhos'}
+                par_attributes['standard_name']='chlorophyll_concentration'
+                par_attributes['long_name']='Chlorophyll a concentration derived from red edge'
+                par_attributes['units']='mg m^-3'
+                par_attributes['reference']=''
+                par_attributes['algorithm']=''
+
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves]
 
                 if len(par_split) >= 3:
                     if par_split[2][0:4] == 'gons': 
                         par_attributes['algorithm']='Gons et al. 3 band'
+                        par_attributes['reference']='Gons et al. 2005'
                         gons = coef_chl_re_gons()
 
                         ### get required datasets
@@ -596,6 +642,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 par_data[((data_read[required_datasets[0]] <= gm[0]) | (data_read[required_datasets[1]]/data_read[required_datasets[0]] <= gm[1]))]=nan
                                 
                     if par_split[2][0:5] == 'moses':
+                        par_attributes['reference']='Moses et al. 2012'
                         par_attributes['algorithm']='Moses et al. 3 band'
                         par_attributes['a']=(232.29,23.173) ## put coefficients in external file
                                                     
@@ -629,6 +676,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 par_data[par_data<0]=nan  
                                 
                     if par_split[2][0:6] == 'mishra': 
+                        par_attributes['reference']='Mishra et al. 2014'
                         par_attributes['algorithm']='Mishra et al. 2014, NDCI'
                         par_attributes['a']=(14.039, 86.115, 194.325) ## put coefficients in external file
                         
@@ -667,6 +715,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_exists = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Mishra et al. 2014, NDCI', 'dataset':'rhos'}
+                par_attributes['standard_name']='ndci'
+                par_attributes['long_name']='Normalised Difference Chlorophyll Index'
+                par_attributes['units']=1
+                par_attributes['reference']='Mishra et al. 2014'
+                par_attributes['algorithm']=''
+
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves]
                 
@@ -702,6 +756,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_exists = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Kudela et al. 2015, SLH', 'dataset':'rhos'}
+                par_attributes['standard_name']='slh'
+                par_attributes['long_name']='Scattering Line Height'
+                par_attributes['units']=1
+                par_attributes['reference']='Kudela et al. 2015'
+                par_attributes['algorithm']=''
+
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves] 
 
@@ -744,6 +804,11 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_exists = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'QAA', 'dataset':'rhos'}
+                par_attributes['standard_name']='qaa'
+                par_attributes['long_name']='Quasi Analytical Algorithm outputs'
+                par_attributes['units']='various'
+                par_attributes['reference']='Lee et al. 2002'
+                par_attributes['algorithm']=''
 
                 if not qaa_computed:
                     req_waves,req_waves_selected = [],[]
@@ -786,6 +851,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = False
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Floating Algal Index, Hu et al. 2009', 'dataset':'rhos'}
+                par_attributes['standard_name']='fai'
+                par_attributes['long_name']='Floating Algal Index'
+                par_attributes['units']=1
+                par_attributes['reference']='Hu et al. 2009'
+                par_attributes['algorithm']=''
+
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves] 
 
@@ -824,6 +895,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = False
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Floating Algal Index Turbid Waters, Dogliotti et al. 2018', 'dataset':'rhos'}
+                par_attributes['standard_name']='fait'
+                par_attributes['long_name']='Floating Algal Index for Turbid Waters'
+                par_attributes['units']=1
+                par_attributes['reference']='Dogliotti et al. 2018'
+                par_attributes['algorithm']=''
+
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves] 
 
@@ -905,7 +982,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = False
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'NDVI', 'dataset':'rhos'}
-                
+                par_attributes['standard_name']='ndvi'
+                par_attributes['long_name']='Normalised Difference Vegetation Index'
+                par_attributes['units']=1
+                par_attributes['reference']=''
+                par_attributes['algorithm']=''
+
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves] 
 
@@ -945,6 +1027,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Water reflectance', 'dataset':'rhos'}
+                par_attributes['standard_name']='rhow'
+                par_attributes['long_name']='Water leaving radiance reflectance'
+                par_attributes['units']=1
+                par_attributes['reference']=''
+                par_attributes['algorithm']=''
+
                 required_datasets = ['rhos_{}'.format(par_split[1])]
                 if len(required_datasets) > 0: 
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
@@ -965,6 +1053,12 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_split = par_name.split('_')
                 par_name = 'Rrs_{}'.format(par_split[1])
                 par_attributes = {'algorithm':'Remote sensing reflectance', 'dataset':'rhos', 'parname':par_name}
+                par_attributes['standard_name']='Rrs'
+                par_attributes['long_name']='Remote sensing reflectance'
+                par_attributes['units']='sr^-1'
+                par_attributes['reference']=''
+                par_attributes['algorithm']=''
+
                 required_datasets = ['rhos_{}'.format(par_split[1])]
                 if len(required_datasets) > 0: 
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
@@ -985,6 +1079,11 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Hue Angle', 'dataset':'rhos'}
+                par_attributes['standard_name']='hue_angle'
+                par_attributes['long_name']='Hue Angle'
+                par_attributes['units']='degrees'
+                par_attributes['reference']='Van der Woerd et al., 2018'
+                par_attributes['algorithm']=''
 
                 if not qaa_computed:
                     req_waves,req_waves_selected = [],[]
@@ -1056,6 +1155,11 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = True
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'Castagna et al. in prep'}
+                par_attributes['standard_name']='olh'
+                par_attributes['long_name']='Orange Line Height'
+                par_attributes['units']=1
+                par_attributes['reference']='Castagna et al. in prep'
+                par_attributes['algorithm']=''
 
                 ### get required datasets
                 if gatts['sensor'] == 'L8_OLI':
@@ -1082,7 +1186,11 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 mask_data = False
                 par_split = par_name.split('_')
                 par_attributes = {'algorithm':'sample'}
-                
+                par_attributes['standard_name']='sample'
+                par_attributes['long_name']='Sample'
+                par_attributes['units']='sample'
+                par_attributes['reference']=''
+                par_attributes['algorithm']=''
 
                 if len(required_datasets) > 0: 
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
@@ -1117,9 +1225,14 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
             ## create NetCDF
             if nc_new:
-                nc_write(ncfile, 'lon', nc_data(inputfile, 'lon'), attributes=gatts, new=True,
+                data_, att_ = nc_data(inputfile, 'lon', attributes=True)
+                nc_write(ncfile, 'lon', data_, attributes=gatts, new=True,
+                                   dataset_attributes=att_,
                                    nc_compression=nc_compression, chunking=chunking)
-                nc_write(ncfile, 'lat', nc_data(inputfile, 'lat'))
+                data_, att_ = nc_data(inputfile, 'lat', attributes=True)
+                nc_write(ncfile, 'lat', data_, dataset_attributes=att_)
+                data_ = None
+                att_ = None
 
                 ## write easting and northing if requested
                 if 'x' in l2r_datasets: nc_write(ncfile, 'x', nc_data(inputfile, 'x'))
@@ -1127,7 +1240,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 
                 ## write flags
                 if l2_flags is not None:
-                    nc_write(ncfile, "l2_flags", l2_flags)
+                    #ds_atts = {'flag_masks':'', 'flag_meanings':''}
+                    ds_atts = {'standard_name':'l2_flags', 'units':1}
+                    nc_write(ncfile, "l2_flags", l2_flags, dataset_attributes=ds_atts)
                     l2_flags = None
 
             ## mask output

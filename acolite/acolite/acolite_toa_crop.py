@@ -20,6 +20,7 @@
 ##                2018-11-19 (QV) fixed cirrus band output
 ##                2018-02-21 (QV) fixed S2 band name issue
 ##                2018-03-12 (QV) fixed issue with limits extending out of the scene and saving the L8 PAN/MS data
+##                2018-03-26 (QV) added CF dataset names
 
 def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
                      nc_write_geo_xy = False, 
@@ -209,10 +210,12 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
                     lon, lat = pp.sentinel.geo.get_ll(grmeta, limit=limit, extend_limit=True, resolution=s2_target_res)
                 crop_dims = lon.shape
 
-                pp.output.nc_write(ncfile, 'lon', lon, new=new, attributes=attributes, 
+                pp.output.nc_write(ncfile, 'lon', lon, new=new, attributes=attributes,
+                                    dataset_attributes={'standard_name':'longitude', 'units':'degree_east'},
                                     nc_compression=nc_compression, chunking=chunking)
                 new = False
                 pp.output.nc_write(ncfile, 'lat', lat, new=new, attributes=attributes, 
+                                    dataset_attributes={'standard_name':'latitude', 'units':'degree_north'},
                                     nc_compression=nc_compression, chunking=chunking)
 
                 ##########################
@@ -273,6 +276,14 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
                     bid = str(b)
                     ds_att = {'wavelength':float(wave), 'band_name':band_name}
                 if band_data is None: continue
+
+                ## add CF names
+                if 'bt' in oname:
+                    ds_att['standard_name']='toa_brightness_temperature'
+                    ds_att['units']='K'
+                else:
+                    ds_att['standard_name']='toa_bidirectional_reflectance'
+                    ds_att['units']=1
 
                 ## write to NetCDF file
                 pp.output.nc_write(ncfile, oname, band_data, dataset_attributes=ds_att, new=new, offset=offset, replace_nan=replace_nan,

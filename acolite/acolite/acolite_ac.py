@@ -41,6 +41,7 @@
 ##                2018-12-05 (QV) fixed cirrus and wv band output in tiled processing
 ##                                added resolved_angles for S2 processing
 ##                2019-03-12 (QV) global attributes xrange and yrange fixed for limits crossing the scene borders
+##                2019-03-26 (QV) added some CF dataset names
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -184,6 +185,7 @@ def acolite_ac(bundle, odir,
             data_type = None
 
     if data_type is None:
+        metadata = pp.landsat.metadata_parse(bundle)
         try:
             metadata = pp.landsat.metadata_parse(bundle)
             data_type = "Landsat"
@@ -709,6 +711,8 @@ def acolite_ac(bundle, odir,
                     wave = band_dict[band_name]['wave']
                     parname = 'rhot_{:.0f}'.format(wave)
                     ds_att = {'wavelength':float(wave),'band_name':band_name}
+                    ds_att['standard_name']='toa_bidirectional_reflectance'
+                    ds_att['units']=1
 
                     ## read data and make full tile NC file
                     print('Reading band {}'.format(band_name))
@@ -968,7 +972,9 @@ def acolite_ac(bundle, odir,
                     wave = band_dict[band_name]['wave']
                     parname_t = 'rhot_{:.0f}'.format(wave)
                     ds_att = {'wavelength':float(wave),'band_name':band_name}
-                    
+                    ds_att['standard_name']='toa_bidirectional_reflectance'
+                    ds_att['units']=1
+
                     ## read data
                     if (l1r_read_nc) & (parname_t in l1r_datasets):
                         band_data = pp.shared.nc_data(l1r_ncfile, parname_t)
@@ -1338,6 +1344,8 @@ def acolite_ac(bundle, odir,
 
                 ## write toa reflectance
                 if nc_write_rhot:
+                    ds_att['standard_name']='toa_bidirectional_reflectance'
+                    ds_att['units']=1
                     pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new, 
                                        attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                     l2r_nc_new=False
@@ -1351,7 +1359,8 @@ def acolite_ac(bundle, odir,
                         rrc_cur = (band_data - rorayl_s[btag]) / (dtotr_s[btag]*utotr_s[btag])
                     elif aerosol_correction == 'exponential':
                         rrc_cur = (band_data - rorayl[btag]) / (dtotr[btag]*utotr[btag])
-
+                    ds_att['standard_name']='rayleigh_corrected_reflectance'
+                    ds_att['units']=1
                     rrc_cur[valid_mask == 0] = nan
                     pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(wave), rrc_cur, new=l2r_nc_new, attributes=attributes, dataset_attributes={'wavelength':float(wave),'band_name':band_name})
                     rrc_cur = None
@@ -1458,6 +1467,8 @@ def acolite_ac(bundle, odir,
                     
                     ## write surface reflectance
                     if (nc_write_rhos):
+                            ds_att['standard_name']='surface_bidirectional_reflectance'
+                            ds_att['units']=1
                             rhos_data[valid_mask == 0] = nan
                             pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, 
                                            attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
@@ -1466,6 +1477,8 @@ def acolite_ac(bundle, odir,
                     ## write water reflectance
                     ## add sky corr and mask
                     if (nc_write_rhow):
+                            ds_att['standard_name']='water_bidirectional_reflectance'
+                            ds_att['units']=1
                             rhos_data[valid_mask == 0] = nan
                             rhos_data[mask] = nan
                             pp.output.nc_write(l2r_ncfile, parname_w, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, 
@@ -1510,6 +1523,8 @@ def acolite_ac(bundle, odir,
                 for band in ['10','11']:
                     parname = 'bt{}'.format(band)
                     ds_att = {'parameter':'at sensor brightness temperature B{}'.format(band)}
+                    ds_att['standard_name']='toa_brightness_temperature'
+                    ds_att['units']='K'
                     if data_type == 'NetCDF':
                         if parname in pp.nc_datasets(bundle):
                             data = pp.nc_data(bundle, parname)
@@ -1534,12 +1549,12 @@ def acolite_ac(bundle, odir,
 
                 ### write to L1R NCDF
                 if os.path.exists(l1r_ncfile) & l1r_read_nc:
-                    pp.output.nc_write(l1r_ncfile, 'lon', lon)
-                    pp.output.nc_write(l1r_ncfile, 'lat', lat)
+                    pp.output.nc_write(l1r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'})
+                    pp.output.nc_write(l1r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'})
                 ### write to L2R NCDF
                 if os.path.exists(l2r_ncfile):
-                    pp.output.nc_write(l2r_ncfile, 'lon', lon)
-                    pp.output.nc_write(l2r_ncfile, 'lat', lat)
+                    pp.output.nc_write(l2r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'})
+                    pp.output.nc_write(l2r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'})
             ## end write geo
             ##########################
 
