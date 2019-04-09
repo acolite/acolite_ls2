@@ -18,9 +18,10 @@
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-24 (QV) fixed s2 grid name formatting
 ##                2018-11-19 (QV) fixed cirrus band output
-##                2018-02-21 (QV) fixed S2 band name issue
-##                2018-03-12 (QV) fixed issue with limits extending out of the scene and saving the L8 PAN/MS data
-##                2018-03-26 (QV) added CF dataset names
+##                2019-02-21 (QV) fixed S2 band name issue
+##                2019-03-12 (QV) fixed issue with limits extending out of the scene and saving the L8 PAN/MS data
+##                2019-03-26 (QV) added CF dataset names
+##                2019-04-09 (QV) added pan global dimensions to correspond to 2xMS extended dimensions
 
 def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
                      nc_write_geo_xy = False, 
@@ -293,6 +294,8 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
             if (data_type == 'Landsat') and (l8_output_pan or l8_output_pan_ms):
                 if metadata["SATELLITE"] in ['LANDSAT_7','LANDSAT_8']:
                     pan_offset = [o*2 for o in offset]
+                    pan_crop_dims = (crop_dims[0]*2, crop_dims[1]*2)
+
                     if metadata['SATELLITE'] == 'LANDSAT_7': panband = 8
                     if metadata['SATELLITE'] == 'LANDSAT_8': panband = 8
                     band_data = pp.landsat.get_rtoa(bundle, metadata, panband, sub=sub, pan=True)
@@ -300,7 +303,7 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
                     ## write PAN to NetCDF file
                     if l8_output_pan:
                         oname = 'rhot_pan'
-                        pp.output.nc_write(ncfile_pan, oname, band_data, new=new_pan, offset=pan_offset, replace_nan=replace_nan,
+                        pp.output.nc_write(ncfile_pan, oname, band_data, new=new_pan, global_dims=pan_crop_dims, offset=pan_offset, replace_nan=replace_nan,
                                                    attributes=attributes, nc_compression=nc_compression, chunking=chunking)
                         new_pan=False
 
