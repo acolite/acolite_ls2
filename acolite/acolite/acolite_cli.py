@@ -54,6 +54,9 @@ def acolite_cli(*args):
     if 'output' not in acolite_settings:
         print('No output specified in settings file.')
         return(1)
+    import acolite as pp
+    if 'met_dir' in acolite_settings:
+        pp.config['met_dir'] = acolite_settings['met_dir']
 
     logfile = '{}/{}'.format(acolite_settings['output'],'acolite_run_{}_log.txt'.format(acolite_settings['runid']))
     log = LogTee(logfile)
