@@ -15,6 +15,7 @@
 ##                     2018-11-19 (QV) removed the disabling of ancillary data download in GUI
 ##                     2018-11-10 (QV) re-disabled the ancillary data download in GUI
 ##                     2019-03-26 (QV) added check for returned l2r files
+##                     2019-04-11 (QV) added blackfill_skip
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -106,6 +107,9 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         ### run toa crop netcdf for these scenes and limit
         scenes = acolite.acolite_toa_crop(inputfile, setu['output'], 
                                           limit=setu['limit'], 
+                                          blackfill_skip=setu['blackfill_skip'], 
+                                          blackfill_max=setu['blackfill_max'], 
+                                          blackfill_wave=setu['blackfill_wave'], 
                                           s2_target_res=setu['s2_target_res'], 
                                           l8_output_pan=setu['rgb_pan_sharpen'], 
                                           l8_output_pan_ms=l8_output_pan_ms,
@@ -134,6 +138,11 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         ret = acolite.acolite_ac(scene, setu['output'], limit=setu['limit'], 
                                                         ## select aerosol correction
                                                         aerosol_correction=setu['aerosol_correction'], 
+
+                                                        ## skip cropped scenes in the blackfill
+                                                        blackfill_skip=setu['blackfill_skip'], 
+                                                        blackfill_max=setu['blackfill_max'], 
+                                                        blackfill_wave=setu['blackfill_wave'], 
 
                                                         ## generic settings
                                                         ancillary_data=setu['ancillary_data'],

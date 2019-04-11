@@ -22,8 +22,14 @@
 ##                2019-03-12 (QV) fixed issue with limits extending out of the scene and saving the L8 PAN/MS data
 ##                2019-03-26 (QV) added CF dataset names
 ##                2019-04-09 (QV) added pan global dimensions to correspond to 2xMS extended dimensions
+##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
 
-def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
+def acolite_toa_crop(scenes, odir, limit=None, 
+                     ## skip cropped scenes that are in the "blackfill"
+                     blackfill_skip=True,
+                     blackfill_max=1.0,
+                     blackfill_wave = 1600, 
+                     nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
                      nc_write_geo_xy = False, 
                      l8_output_pan=False, l8_output_pan_ms=False, override = True):
     import acolite as pp
@@ -169,6 +175,25 @@ def acolite_toa_crop(scenes, odir, limit=None, nc_compression=True, chunking=Tru
             if (out_of_scene):
                  print('Region {} out of scene {}'.format(limit,bundle))
                  continue
+
+            ## skip cropped scenes that are in the "blackfill"
+            if (sub is not None) & (blackfill_skip):
+                bi, bw = pp.shared.closest_idx(ordered_waves, blackfill_wave)
+                band_name = ordered_bands[bi]
+                wave = band_dict[band_name]['wave']
+                parname_t = 'rhot_{:.0f}'.format(wave)
+                if data_type == 'NetCDF':
+                    band_data = pp.shared.nc_data(granule, parname_t)
+                if data_type == 'Landsat':
+                    band_data = pp.landsat.get_rtoa(bundle, metadata, band_name, sub=sub)
+                if data_type == 'Sentinel':
+                    band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, target_res=s2_target_res, sub=grids)
+                npx = band_data.shape[0] * band_data.shape[1]
+                nbf = npx - len(np.where(np.isfinite(band_data))[0])
+                band_data = None
+                if (nbf/npx) >= blackfill_max:
+                    print('Skipping scene as crop is {:.0f}% blackfill'.format(100*nbf/npx))
+                    continue
             
             ## set up new file and make lat/lon datasets
             if (bundle_id == 0) or (new):

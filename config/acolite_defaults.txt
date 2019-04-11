@@ -1,6 +1,11 @@
 ## ACOLITE Python default settings
 ##
 
+## test cropped scenes for blackfill coverage
+blackfill_skip=True
+blackfill_max=1.0
+blackfill_wave=1600
+
 ## output l2w parameters
 l2w_parameters=
 l2w_mask=True
