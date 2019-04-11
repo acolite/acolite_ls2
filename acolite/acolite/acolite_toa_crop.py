@@ -34,6 +34,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                      l8_output_pan=False, l8_output_pan_ms=False, override = True):
     import acolite as pp
     from numpy import nanmean, nan
+    import numpy as np
     from scipy.ndimage import zoom
     import time, os
 
@@ -178,10 +179,12 @@ def acolite_toa_crop(scenes, odir, limit=None,
 
             ## skip cropped scenes that are in the "blackfill"
             if (sub is not None) & (blackfill_skip):
-                bi, bw = pp.shared.closest_idx(ordered_waves, blackfill_wave)
-                band_name = ordered_bands[bi]
-                wave = band_dict[band_name]['wave']
-                parname_t = 'rhot_{:.0f}'.format(wave)
+                bi, wave = pp.shared.closest_idx(swavesl, blackfill_wave)
+                if data_type == 'Landsat':
+                    band_name = metadata['BANDS_ALL'][bi]
+                if data_type == 'Sentinel':
+                    band_name = metadata['BAND_NAMES'][bi]
+                parname_t = 'rhot_{}'.format(wave)
                 if data_type == 'NetCDF':
                     band_data = pp.shared.nc_data(granule, parname_t)
                 if data_type == 'Landsat':
@@ -191,7 +194,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                 npx = band_data.shape[0] * band_data.shape[1]
                 nbf = npx - len(np.where(np.isfinite(band_data))[0])
                 band_data = None
-                if (nbf/npx) >= blackfill_max:
+                if (nbf/npx) >= float(blackfill_max):
                     print('Skipping scene as crop is {:.0f}% blackfill'.format(100*nbf/npx))
                     continue
             
