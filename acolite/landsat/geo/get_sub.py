@@ -10,6 +10,7 @@
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-01 (QV) added grid cell size option
 ##                2019-03-12 (QV) changed the Y extent crop
+##                2019-04-09 (QV) changed the region x/y sizes
 
 def get_sub(metadata, limit):
     from acolite.landsat.geo import get_projection
@@ -54,7 +55,9 @@ def get_sub(metadata, limit):
     x_size = int((xrange[1]-xrange[0])/pixelsize[0])+1
     y_size = int((yrange[1]-yrange[0])/pixelsize[1])+1
 
-
+    ## 9 april 2019
+    x_size = int((xrange[1]-xrange[0])/pixelsize[0])+1
+    y_size = int((yrange[1]-yrange[0])/pixelsize[1])-1#+1
 
     grid_region = {'dims':(x_size,y_size), 'xrange':xrange, 'yrange':yrange}
 

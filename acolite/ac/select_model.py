@@ -243,6 +243,8 @@ def select_model(metadata, rdark, rsr_file=None, lutdir=None, bestfit='bands', b
                 rmsdi_band = ''
                 rmsdi_min = 5
                 for i,b in enumerate(tmp[7].keys()):
+                    if b == idx: continue
+
                     rmsd_yi = [rdark_selected[b], rdark_selected[idx]]
                     rmsd_xi = [tmp[0][b],tmp[0][idx]]
                     rmsdi[b] = pp.rmsd(rmsd_xi,rmsd_yi)
@@ -250,10 +252,16 @@ def select_model(metadata, rdark, rsr_file=None, lutdir=None, bestfit='bands', b
                     if (rmsdi[b] < rmsdi_min) & (b != idx):
                         rmsdi_band = b
                         rmsdi_min = rmsdi[b]
-                #print(rmsdi_band,rmsdi[rmsdi_band])
+
+                # this happens if no band fits better (e.g. for rhopath==rhorayleigh)
                 if rmsdi_band == '': 
                     rmsdi_band = b
-                if (rmsdi[rmsdi_band] <= sel_rmsd) | (li == 0):
+                    sel_rmsd = -1
+                    sel_idx = (idx,idx)
+                    sel_ac_par = tmp
+                    sel_model_lut, sel_model_lut_meta = (lut_sensor, meta_sensor)
+                    pixel_idx = -1
+                elif (rmsdi[rmsdi_band] <= sel_rmsd) | (li == 0):
                     sel_rmsd = rmsdi[rmsdi_band]
                     sel_idx = (idx,rmsdi_band)
                     sel_ac_par = tmp

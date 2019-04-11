@@ -42,11 +42,25 @@
 ##                                added resolved_angles for S2 processing
 ##                2019-03-12 (QV) global attributes xrange and yrange fixed for limits crossing the scene borders
 ##                2019-03-26 (QV) added some CF dataset names
+##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
+##                                added check for bright scenes for cropped scenes (cropmask_skip)
+
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
                 limit=None,
                 aerosol_correction='dark_spectrum',
+
+                ## skip cropped scenes that are in the "blackfill"
+                blackfill_skip=True,
+                blackfill_max=1.0,
+                blackfill_wave=1600, 
+
+                ## skip cropped scenes that are largely masked
+                cropmask_skip=False,
+                cropmask_max=0.8,
+                cropmask_wave=1600, 
+                cropmask_threshold=0.1, 
 
                 ## old options?
                 pixel_idx=200,
@@ -163,7 +177,9 @@ def acolite_ac(bundle, odir,
                 ret_rdark=False):
 
     import acolite as pp
-    from numpy import nanmean, nanpercentile, isfinite, count_nonzero, zeros, ceil, nan, linspace, min, max, where,float64, float32, int32, abs
+    from numpy import nanmean, nanpercentile, isfinite, count_nonzero, zeros, ceil, nan, linspace, min, max, where,float64, float32, int32, abs, minimum, nanmin, nanmax
+    import numpy as np
+
     from netCDF4 import Dataset
     from scipy.ndimage import zoom
     import time, os
@@ -449,6 +465,50 @@ def acolite_ac(bundle, odir,
         if (out_of_scene):
             print('Region {} out of scene {}'.format(limit,bundle))
             continue
+
+        ##########################
+        ## skip cropped scenes that are in the "blackfill"
+        if (sub is not None) & (blackfill_skip):
+            bi, bw = pp.shared.closest_idx(ordered_waves, blackfill_wave)
+            band_name = ordered_bands[bi]
+            wave = band_dict[band_name]['wave']
+            parname_t = 'rhot_{:.0f}'.format(wave)
+            if data_type == 'NetCDF':
+                band_data = pp.shared.nc_data(granule, parname_t)
+            if data_type == 'Landsat':
+                band_data = pp.landsat.get_rtoa(bundle, metadata, band_name, sub=sub)
+            if data_type == 'Sentinel':
+                band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, target_res=s2_target_res, sub=grids)
+            npx = band_data.shape[0] * band_data.shape[1]
+            nbf = npx - len(np.where(np.isfinite(band_data))[0])
+            band_data = None
+            if (nbf/npx) >= float(blackfill_max):
+                print('Skipping scene as crop is {:.0f}% blackfill'.format(100*nbf/npx))
+                continue
+        #### end blackfill check
+        ##########################
+
+        ##########################
+        ## skip cropped scenes that largely masked
+        if (sub is not None) & (cropmask_skip):
+            bi, bw = pp.shared.closest_idx(ordered_waves, cropmask_wave)
+            band_name = ordered_bands[bi]
+            wave = band_dict[band_name]['wave']
+            parname_t = 'rhot_{:.0f}'.format(wave)
+            if data_type == 'NetCDF':
+                band_data = pp.shared.nc_data(granule, parname_t)
+            if data_type == 'Landsat':
+                band_data = pp.landsat.get_rtoa(bundle, metadata, band_name, sub=sub)
+            if data_type == 'Sentinel':
+                band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, target_res=s2_target_res, sub=grids)
+            npx = band_data.shape[0] * band_data.shape[1]
+            ncm = npx - len(np.where(band_data<cropmask_threshold)[0])
+            band_data = None
+            if (ncm/npx) >= float(cropmask_max):
+                print('Skipping scene as crop is likely cloudy ({:.0f}% masked)'.format(100*ncm/npx))
+                continue
+        #### end mask check
+        ##########################
 
         ## exit if THS is out of scope LUT
         metadata['THS-true'] = metadata['THS']
@@ -1794,6 +1854,7 @@ def acolite_ac(bundle, odir,
         ## end nc writing
         ####################################
 
+        ####################################
         ## glint correction
         if (aerosol_correction == 'dark_spectrum') & glint_correction:
             print('Starting glint correction')
@@ -1956,11 +2017,14 @@ def acolite_ac(bundle, odir,
                 pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(wave), cur_gcor)
                 cur_gcor = None
        ## end glint correction
-                
+       ####################################
+
         ## remove nc file
         if (nc_delete) & (os.path.exists(l2r_ncfile)):
             os.remove(l2r_ncfile)
         else:
             l2r_files.append(l2r_ncfile)
+
+    lut_data_dict = None
 
     return(l2r_files)
