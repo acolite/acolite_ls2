@@ -490,7 +490,6 @@ def acolite_ac(bundle, odir,
 
         ##########################
         ## skip cropped scenes that largely masked
-        cropmask_skip = True
         if (sub is not None) & (cropmask_skip):
             bi, bw = pp.shared.closest_idx(ordered_waves, cropmask_wave)
             band_name = ordered_bands[bi]
