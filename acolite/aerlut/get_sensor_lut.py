@@ -91,6 +91,7 @@ def get_sensor_lut(sensor, rsr_file, override=0, lutdir=None, lutid='PONDER-LUT-
                     var = nc.createVariable(band,float,('par','azi','thv','ths','wnd','tau'))
                     nc.variables[band][:] = lut_sensor[band]
                 nc.close()
+                nc = None
                 arr = None
                 meta = None
         except:
@@ -116,8 +117,9 @@ def get_sensor_lut(sensor, rsr_file, override=0, lutdir=None, lutid='PONDER-LUT-
                 for dataset in datasets: 
                     lut_sensor[dataset] = nc.variables[dataset][:]
                 nc.close()
+                nc = None
         except:
             print(sys.exc_info()[0])
             print('Failed to open LUT data from NetCDF (id='+lutid+')')
 
-    return lut_sensor, meta
+    return(lut_sensor, meta)
