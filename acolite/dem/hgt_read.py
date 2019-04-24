@@ -2,6 +2,7 @@
 ## reads DEM HGT SRTM files
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## 2017-07-17
+##                2019-04-24 (QV) added support for zip files
 
 def hgt_read(file):
     import struct
@@ -11,6 +12,11 @@ def hgt_read(file):
         import gzip
         with gzip.open(file,'rb') as f:
             data_read = f.read()
+    elif '.zip' in file:
+        import zipfile, os
+        zfile = '{}.{}'.format(os.path.basename(file).split('.')[0], 'hgt')
+        with zipfile.ZipFile(file, mode='r') as f:
+            data_read = f.read(zfile)
     else:
         with open(file,'rb') as f:
             data_read = f.read()

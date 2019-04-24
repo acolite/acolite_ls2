@@ -16,6 +16,7 @@
 ##                     2018-11-10 (QV) re-disabled the ancillary data download in GUI
 ##                     2019-03-26 (QV) added check for returned l2r files
 ##                     2019-04-11 (QV) added blackfill_skip
+##                     2019-04-24 (QV) converted dem_pressure_percentile in float
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -165,7 +166,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         elevation=setu['elevation'],
                                                         lut_pressure=setu['lut_pressure'],
                                                         dem_pressure=setu['dem_pressure'],
-                                                        dem_pressure_percentile=setu['dem_pressure_percentile'],
+                                                        dem_pressure_percentile=float(setu['dem_pressure_percentile']),
 
                                                         ## for dark spectrum
                                                         dsf_path_reflectance=setu['dsf_path_reflectance'],

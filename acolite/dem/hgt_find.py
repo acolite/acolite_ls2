@@ -2,6 +2,7 @@
 ## finds DEM HGT SRTM files covering a given limit
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## 2017-07-17
+##                2019-04-24 (QV) added support for zip files
 
 def hgt_find(limit, required=False, hgt_dir=None, hgt_ext='.SRTMGL3.hgt.gz'):
     import os
@@ -31,9 +32,15 @@ def hgt_find(limit, required=False, hgt_dir=None, hgt_ext='.SRTMGL3.hgt.gz'):
     hgt_files = []
     
     for hgt_file in hgt_required:
-        hgt_path = '{}/{}{}'.format(hgt_dir, hgt_file,hgt_ext)
+        hgt_path = '{}/{}{}'.format(hgt_dir, hgt_file, hgt_ext)
         if os.path.exists(hgt_path): hgt_files.append(hgt_path)
-            
+        else:
+            hgt_path = '{}/{}{}'.format(hgt_dir, hgt_file, hgt_ext.replace('.gz','.zip'))
+            if os.path.exists(hgt_path): hgt_files.append(hgt_path)
+            else:
+                hgt_path = '{}/{}{}'.format(hgt_dir, hgt_file, hgt_ext.replace('.SRTMGL3.hgt.gz','.hgt'))
+                if os.path.exists(hgt_path): hgt_files.append(hgt_path)
+
     if required:
         return(hgt_files, hgt_required)
     else:
