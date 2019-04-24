@@ -17,12 +17,13 @@
 ##                     2019-03-26 (QV) added check for returned l2r files
 ##                     2019-04-11 (QV) added blackfill_skip
 ##                     2019-04-24 (QV) converted dem_pressure_percentile in float
+##                                     added test for met_dir
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
     import datetime, time
 
-    from acolite import acolite
+    from acolite import acolite, config
     from acolite.output import nc_to_geotiff
 
     print('Launching ACOLITE Python!')
@@ -47,6 +48,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         print('Disabling ancillary data in GUI due to download bug.')
         print('Please use the CLI for ancillary download.')
         setu['ancillary_data'] = False
+
+    ## check if met_dir is provided
+    if ('met_dir' in setu):
+        config['met_dir'] = setu['met_dir']
 
     ## check if we have an inputfile
     if (setu['inputfile'] is None):
