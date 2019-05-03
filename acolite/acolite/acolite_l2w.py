@@ -21,6 +21,7 @@
 ##                     2018-12-05 (QV) added cirrus masking
 ##                     2019-02-21 (QV) added l2_flags = None
 ##                     2019-03-26 (QV) added some CF names
+##                     2019-04-29 (QV) changed all unit attributes to strings
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
@@ -717,7 +718,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'Mishra et al. 2014, NDCI', 'dataset':'rhos'}
                 par_attributes['standard_name']='ndci'
                 par_attributes['long_name']='Normalised Difference Chlorophyll Index'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']='Mishra et al. 2014'
                 par_attributes['algorithm']=''
 
@@ -758,7 +759,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'Kudela et al. 2015, SLH', 'dataset':'rhos'}
                 par_attributes['standard_name']='slh'
                 par_attributes['long_name']='Scattering Line Height'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']='Kudela et al. 2015'
                 par_attributes['algorithm']=''
 
@@ -853,7 +854,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'Floating Algal Index, Hu et al. 2009', 'dataset':'rhos'}
                 par_attributes['standard_name']='fai'
                 par_attributes['long_name']='Floating Algal Index'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']='Hu et al. 2009'
                 par_attributes['algorithm']=''
 
@@ -897,7 +898,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'Floating Algal Index Turbid Waters, Dogliotti et al. 2018', 'dataset':'rhos'}
                 par_attributes['standard_name']='fait'
                 par_attributes['long_name']='Floating Algal Index for Turbid Waters'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']='Dogliotti et al. 2018'
                 par_attributes['algorithm']=''
 
@@ -984,7 +985,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'NDVI', 'dataset':'rhos'}
                 par_attributes['standard_name']='ndvi'
                 par_attributes['long_name']='Normalised Difference Vegetation Index'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']=''
                 par_attributes['algorithm']=''
 
@@ -1029,7 +1030,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'Water reflectance', 'dataset':'rhos'}
                 par_attributes['standard_name']='rhow'
                 par_attributes['long_name']='Water leaving radiance reflectance'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']=''
                 par_attributes['algorithm']=''
 
@@ -1157,7 +1158,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes = {'algorithm':'Castagna et al. in prep'}
                 par_attributes['standard_name']='olh'
                 par_attributes['long_name']='Orange Line Height'
-                par_attributes['units']=1
+                par_attributes['units']="1"
                 par_attributes['reference']='Castagna et al. in prep'
                 par_attributes['algorithm']=''
 
