@@ -7,7 +7,7 @@ def read_refri():
     file = '{}/{}'.format(ac.config['pp_data_dir'], 'Shared/WOPP/computed_refri_T27_S0.dat')
 
     data = {'wave':[], 'n':[]}
-    with open(file, 'r') as f:
+    with open(file, 'r', encoding="utf-8") as f:
         for line in f.readlines():
             if line[0] in ['%', '#', ';']: continue
             line = line.strip()
