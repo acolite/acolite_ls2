@@ -47,6 +47,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         print('Please use the CLI for ancillary download.')
         setu['ancillary_data'] = False
 
+    ## check if met_dir is provided
+    if ('met_dir' in setu):
+        config['met_dir'] = setu['met_dir']
+
     ## check if we have an inputfile
     if (setu['inputfile'] is None):
         print('No inputfile given. Exiting.')
@@ -56,9 +60,6 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     if ('output' not in setu): 
         setu['output'] = os.path.dirname(inputfile[0])
     
-    ## check if there is a met_dir
-    if ('met_dir' in setu): config['met_dir'] = setu['met_dir']
-
     ## force limit to None if not provided
     if ('limit' not in setu): 
         setu['limit'] = None
