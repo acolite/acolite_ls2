@@ -13,7 +13,7 @@ ACOLITE is distributed as a binary package on the [REMSEM page](http://odnature.
 This git repository serves as a distribution of the source code and is aimed only at experienced users.
 
 ## Dependencies
-ACOLITE is coded in Python 3, and requires the following Python packages to run with all functionality:`matplotlib scipy pyproj gdal netcdf4 pyhdf requests statsmodels basemap pillow scikit-image`
+ACOLITE is coded in Python 3, and requires the following Python packages to run with all functionality:`matplotlib scipy pyproj gdal netcdf4 pyhdf requests statsmodels basemap pillow scikit-image pyresample`
 
 ## Installation
 * cd into a suitable directory and clone the git repository: `git clone https://github.com/acolite/acolite`
