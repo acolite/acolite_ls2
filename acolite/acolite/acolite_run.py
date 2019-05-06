@@ -25,10 +25,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
     from acolite import acolite, config
     from acolite.output import nc_to_geotiff
- 
+
     print('Launching ACOLITE Python!')
     setu = acolite.acolite_settings(settings)
-    
+
     ## set variables from settings file if not directly provided by user
     if (inputfile is not None): setu['inputfile'] = inputfile
     if (output is not None): setu['output'] = output
@@ -61,7 +61,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     ## set output if not defined
     if ('output' not in setu): 
         setu['output'] = os.path.dirname(inputfile[0])
-    
+
     ## force limit to None if not provided
     if ('limit' not in setu): 
         setu['limit'] = None
