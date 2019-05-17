@@ -44,10 +44,11 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         if ('bt10' in setu['l2w_parameters']) or ('bt11' in setu['l2w_parameters']):
             setu['l8_output_bt'] = True
 
-    if type(setu['l2w_parameters']) is not list: 
+    if setu['l2w_parameters'] is not None and type(setu['l2w_parameters']) is not list: 
         setu['l2w_parameters'] = [setu['l2w_parameters']]
-    
-    setu['l2w_parameters'] = [par.strip() for par in setu['l2w_parameters']]   
+
+    if setu['l2w_parameters'] is not None: 
+        setu['l2w_parameters'] = [par.strip() for par in setu['l2w_parameters']]
 
     if (gui) & (setu['ancillary_data']): 
         print('Disabling ancillary data in GUI due to download bug.')
