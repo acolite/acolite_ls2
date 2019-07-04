@@ -286,7 +286,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
 
-                if setu['l1r_nc_delete']: os.remove(scene)
+                if setu['l2r_nc_delete']: os.remove(scene)
 
                 ## output GeoTIFF
                 if setu['l2w_export_geotiff']:
