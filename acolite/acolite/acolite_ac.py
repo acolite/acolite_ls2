@@ -44,7 +44,7 @@
 ##                2019-03-26 (QV) added some CF dataset names
 ##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
 ##                                added check for bright scenes for cropped scenes (cropmask_skip)
-
+##                2019-07-04 (QV) added l1r_nc_delete
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -160,6 +160,7 @@ def acolite_ac(bundle, odir,
                 ## NetCDF outputs
                 l1r_nc_compression = False,
                 l1r_nc_override = True,
+                l1r_nc_delete = False,
                 l2r_nc_compression = False,
                 nc_write = True,
                 nc_write_rhot = True,
@@ -2018,6 +2019,11 @@ def acolite_ac(bundle, odir,
                 cur_gcor = None
        ## end glint correction
        ####################################
+
+        ## remove l1r_nc_files
+        if l1r_nc_delete:
+            for f in [l1r_ncfile, l1r_ncfile_pan, l1r_ncfile_pan_ms]:
+                if os.path.exists(f): os.remove(f)
 
         ## remove nc file
         if (nc_delete) & (os.path.exists(l2r_ncfile)):

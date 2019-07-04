@@ -18,6 +18,7 @@
 ##                     2019-04-11 (QV) added blackfill_skip
 ##                     2019-04-24 (QV) converted dem_pressure_percentile in float
 ##                                     added test for met_dir
+##                     2019-07-04 (QV) added nc_delete options
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -212,6 +213,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         ## NetCDF compression
                                                         l1r_nc_compression=setu['l1r_nc_compression'],
                                                         l2r_nc_compression=setu['l2r_nc_compression'],
+                                                        l1r_nc_delete=setu['l1r_nc_delete'],
 
                                                         ## resolved angles
                                                         resolved_angles=setu['resolved_angles'],
@@ -284,6 +286,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
 
+                if setu['l1r_nc_delete']: os.remove(scene)
+
                 ## output GeoTIFF
                 if setu['l2w_export_geotiff']:
                     for f in ret: nc_to_geotiff(f)
@@ -308,6 +312,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                              map_points=setu["map_points"], map_fillcolor=setu['map_fillcolor'], 
                                              rgb_pan_sharpen=setu['rgb_pan_sharpen'])
 
+                if setu['l2w_nc_delete']:
+                    for f in ret: os.remove(f)
     ## done
     print('Finished processing {} scene{}.'.format(nsc,'' if nsc == 1 else 's'))
     return(0)
