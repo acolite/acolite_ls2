@@ -130,9 +130,9 @@ l1r_nc_delete=False
 l2r_nc_delete=False
 l2w_nc_delete=False
 
-# Convert floats to scaled integers
+# Convert reflectance floats to scaled integers
 l2w_nc_scaled=False
-l2w_nc_scaled_offset=0.0
+l2w_nc_scaled_offset=0.02
 l2w_nc_scaled_factor=0.0001
 
 # GeoTIFF export options

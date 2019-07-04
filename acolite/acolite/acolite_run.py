@@ -18,7 +18,7 @@
 ##                     2019-04-11 (QV) added blackfill_skip
 ##                     2019-04-24 (QV) converted dem_pressure_percentile in float
 ##                                     added test for met_dir
-##                     2019-07-04 (QV) added nc_delete options
+##                     2019-07-04 (QV) added nc_delete options, added l2w_nc integerized reflectance output
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -282,7 +282,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                           l2w_mask_negative_rhow=setu['l2w_mask_negative_rhow'],
                                           l2w_mask_cirrus=setu['l2w_mask_cirrus'],
                                           l2w_mask_cirrus_threshold=float(setu['l2w_mask_cirrus_threshold']),
-                                          nc_compression=setu['l2w_nc_compression'],)
+                                          nc_compression=setu['l2w_nc_compression'],
+                                          rho_as_int = setu['l2w_nc_scaled'], 
+                                          rho_scale_factor=setu['l2w_nc_scaled_factor'], 
+                                          rho_add_offset=setu['l2w_nc_scaled_offset'])
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
 
