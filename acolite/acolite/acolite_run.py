@@ -19,6 +19,7 @@
 ##                     2019-04-24 (QV) converted dem_pressure_percentile in float
 ##                                     added test for met_dir
 ##                     2019-07-04 (QV) added nc_delete options, added l2w_nc integerized reflectance output
+##                     2019-07-10 (QV) added output of TIRS Lt
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -44,6 +45,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     if setu['l2w_parameters'] is not None:
         if ('bt10' in setu['l2w_parameters']) or ('bt11' in setu['l2w_parameters']):
             setu['l8_output_bt'] = True
+        if ('lt10' in setu['l2w_parameters']) or ('lt11' in setu['l2w_parameters']):
+            setu['l8_output_lt_tirs'] = True
 
     if (gui) & (setu['ancillary_data']): 
         print('Disabling ancillary data in GUI due to download bug.')
@@ -223,6 +226,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         s2_target_res=setu['s2_target_res'],
                                                         ## L8 output BT
                                                         l8_output_bt=setu['l8_output_bt'],
+                                                        l8_output_lt_tirs=setu['l8_output_lt_tirs'],
+
                                                         ## L8 output PAN band
                                                         l8_output_pan=setu['rgb_pan_sharpen'],
                                                         l8_output_pan_ms=l8_output_pan_ms, 

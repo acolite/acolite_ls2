@@ -4,8 +4,9 @@
 ## 2017-12-05
 ## modifications: 
 ##                2018-07-18 (QV) changed acolite import name
+##                2019-07-10 (QV) added LTOA return
 
-def get_bt(bundle, metadata, band, sub=None):
+def get_bt(bundle, metadata, band, return_radiance = False, sub=None):
     from acolite.landsat import read_band
     from numpy import log, nan
     
@@ -23,6 +24,9 @@ def get_bt(bundle, metadata, band, sub=None):
     slope = metadata['RADIANCE_MULT_BAND_{}'.format(band)]
     data=data*slope
     data+=offset
+    if return_radiance:
+        data[nodata] = nan
+        return(data)
 
     ## compute BT
     if 'K1_CONSTANT_BAND_{}'.format(band) in metadata.keys():

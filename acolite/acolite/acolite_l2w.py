@@ -1211,7 +1211,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     par_attributes = att_read[par_name]
                 else: 
                     par_data,par_attributes = nc_data(inputfile, par_name, attributes=True)
-                if (par_name in ['bt10','bt11']) | ('rhot_' in par_name) | ('rhos_' in par_name) | ('rhorc_' in par_name) : 
+                if (par_name in ['bt10','bt11', 'lt10', 'lt11']) | ('rhot_' in par_name) | ('rhos_' in par_name) | ('rhorc_' in par_name) : 
                     mask_data = False
             ##
             if par_data is not None:
