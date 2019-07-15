@@ -318,6 +318,18 @@ def acolite_toa_crop(scenes, odir, limit=None,
                 pp.output.nc_write(ncfile, oname, band_data, dataset_attributes=ds_att, new=new, offset=offset, replace_nan=replace_nan,
                                            attributes=attributes, nc_compression=nc_compression, chunking=chunking)
 
+                ## also write Lt for thermal bands
+                if band_name in metadata['BANDS_THERMAL']:
+                        band_data = pp.landsat.get_bt(bundle, metadata, band_name, sub=sub, return_radiance=True)
+                        oname = 'lt{}'.format(band_name)
+                        wave = None
+                        ds_att = {'band_name':band_name}
+                        ds_att['standard_name']='toa_brightness_temperature'
+                        ds_att['units']='W/m2srmum'
+                        ## write to NetCDF file
+                        pp.output.nc_write(ncfile, oname, band_data, dataset_attributes=ds_att, new=new, offset=offset, replace_nan=replace_nan,
+                                           attributes=attributes, nc_compression=nc_compression, chunking=chunking)
+
             ## read pan band if requested
             if (data_type == 'Landsat') and (l8_output_pan or l8_output_pan_ms):
                 if metadata["SATELLITE"] in ['LANDSAT_7','LANDSAT_8']:
