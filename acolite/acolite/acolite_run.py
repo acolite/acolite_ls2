@@ -20,6 +20,7 @@
 ##                                     added test for met_dir
 ##                     2019-07-04 (QV) added nc_delete options, added l2w_nc integerized reflectance output
 ##                     2019-07-10 (QV) added output of TIRS Lt
+##                     2019-07-16 (QV) generalised variable copy from settings to config
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -53,9 +54,13 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         print('Please use the CLI for ancillary download.')
         setu['ancillary_data'] = False
 
-    ## check if met_dir is provided
-    if ('met_dir' in setu):
-        config['met_dir'] = setu['met_dir']
+    ## generic override for config
+    for key in config:
+        if key in setu: config[key] = setu[key]
+
+    ## generic override for acolite config
+    for key in acolite.config:
+        if key in setu: acolite.config[key] = setu[key]
 
     ## check if we have an inputfile
     if (setu['inputfile'] is None):
