@@ -5,9 +5,11 @@ header=parameter,min,max,log,color table,name,unit
 ## generic reflectances
 #
 rhot_*,0,0.15,False,default,$\rho_{t}$,-
-rhos_*,0,0.1,False,default,$\rho_{s}$,-
+rhos_*,0,0.05,False,default,$\rho_{s}$,-
 rhow_*,0,0.1,False,default,$\rho_{w}$,-
 Rrs_*,0,0.03,False,default,$Rrs$,$sr^{-1}$
+rhog_*,0,0.05,False,default,$\rho_{g}$,-
+rhoe_*,0,0.05,False,default,$\rho_{e}$,-
 #
 ## SPM Nechad with generic option
 #
@@ -45,7 +47,7 @@ chl_re_mishra,1,100,True,Calgae255,CHL Mishra,mgm$^{-3}$
 #
 ## indices
 #
-fai,-0.01,0.06,False,default,FAI (Hu et al. 2009),-
+fai,-0.04,0.06,False,default,FAI (Hu et al. 2009),-
 fait,0,1,False,default,FAIT (Dogliotti et al. 2018),-
 #
 ndci,-0.5,0.5,False,default,NDCI (Mishra et al. 2014),-
@@ -58,6 +60,8 @@ slh,0,0.01,False,default,Scattering Line Height (Kudela et al. 2015),-
 #
 bt10,270,300,False,default,BT10,K
 bt11,270,300,False,default,BT11,K
+lt10,0,12,False,default,LT10,W $m^{-2}$ $sr^{-1}$ $\mu m^{-1}$
+lt11,0,12,False,default,LT11,W $m^{-2}$ $sr^{-1}$ $\mu m^{-1}$
 ##
 #
 ## Hue Angle
