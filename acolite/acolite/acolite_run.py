@@ -18,6 +18,9 @@
 ##                     2019-04-11 (QV) added blackfill_skip
 ##                     2019-04-24 (QV) converted dem_pressure_percentile in float
 ##                                     added test for met_dir
+##                     2019-07-04 (QV) added nc_delete options, added l2w_nc integerized reflectance output
+##                     2019-07-10 (QV) added output of TIRS Lt
+##                     2019-07-16 (QV) generalised variable copy from settings to config
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -43,6 +46,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     if setu['l2w_parameters'] is not None:
         if ('bt10' in setu['l2w_parameters']) or ('bt11' in setu['l2w_parameters']):
             setu['l8_output_bt'] = True
+        if ('lt10' in setu['l2w_parameters']) or ('lt11' in setu['l2w_parameters']):
+            setu['l8_output_lt_tirs'] = True
 
     if setu['l2w_parameters'] is not None and type(setu['l2w_parameters']) is not list: 
         setu['l2w_parameters'] = [setu['l2w_parameters']]
@@ -55,9 +60,13 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         print('Please use the CLI for ancillary download.')
         setu['ancillary_data'] = False
 
-    ## check if met_dir is provided
-    if ('met_dir' in setu):
-        config['met_dir'] = setu['met_dir']
+    ## generic override for config
+    for key in config:
+        if key in setu: config[key] = setu[key]
+
+    ## generic override for acolite config
+    for key in acolite.config:
+        if key in setu: acolite.config[key] = setu[key]
 
     ## check if we have an inputfile
     if (setu['inputfile'] is None):
@@ -218,6 +227,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         ## NetCDF compression
                                                         l1r_nc_compression=setu['l1r_nc_compression'],
                                                         l2r_nc_compression=setu['l2r_nc_compression'],
+                                                        l1r_nc_delete=setu['l1r_nc_delete'],
 
                                                         ## resolved angles
                                                         resolved_angles=setu['resolved_angles'],
@@ -227,6 +237,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         s2_target_res=setu['s2_target_res'],
                                                         ## L8 output BT
                                                         l8_output_bt=setu['l8_output_bt'],
+                                                        l8_output_lt_tirs=setu['l8_output_lt_tirs'],
+
                                                         ## L8 output PAN band
                                                         l8_output_pan=setu['rgb_pan_sharpen'],
                                                         l8_output_pan_ms=l8_output_pan_ms, 
@@ -286,9 +298,14 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                           l2w_mask_negative_rhow=setu['l2w_mask_negative_rhow'],
                                           l2w_mask_cirrus=setu['l2w_mask_cirrus'],
                                           l2w_mask_cirrus_threshold=float(setu['l2w_mask_cirrus_threshold']),
-                                          nc_compression=setu['l2w_nc_compression'],)
+                                          nc_compression=setu['l2w_nc_compression'],
+                                          rho_as_int = setu['l2w_nc_scaled'], 
+                                          rho_scale_factor=setu['l2w_nc_scaled_factor'], 
+                                          rho_add_offset=setu['l2w_nc_scaled_offset'])
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
+
+                if setu['l2r_nc_delete']: os.remove(scene)
 
                 ## output GeoTIFF
                 if setu['l2w_export_geotiff']:
@@ -314,6 +331,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                              map_points=setu["map_points"], map_fillcolor=setu['map_fillcolor'], 
                                              rgb_pan_sharpen=setu['rgb_pan_sharpen'])
 
+                if setu['l2w_nc_delete']:
+                    for f in ret: os.remove(f)
     ## done
     print('Finished processing {} scene{}.'.format(nsc,'' if nsc == 1 else 's'))
     return(0)

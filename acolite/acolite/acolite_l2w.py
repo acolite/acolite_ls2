@@ -22,9 +22,11 @@
 ##                     2019-02-21 (QV) added l2_flags = None
 ##                     2019-03-26 (QV) added some CF names
 ##                     2019-04-29 (QV) changed all unit attributes to strings
+##                     2019-07-04 (QV) added option to write reflectances in l2w file as integerized floats
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
+                rho_as_int = False, rho_scale_factor=0.000002, rho_add_offset=0.05,
                 nc_compression=True, chunking=True):
     import os
     import datetime, time
@@ -1209,7 +1211,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     par_attributes = att_read[par_name]
                 else: 
                     par_data,par_attributes = nc_data(inputfile, par_name, attributes=True)
-                if (par_name in ['bt10','bt11']) | ('rhot_' in par_name) | ('rhos_' in par_name) | ('rhorc_' in par_name) : 
+                if (par_name in ['bt10','bt11', 'lt10', 'lt11']) | ('rhot_' in par_name) | ('rhos_' in par_name) | ('rhorc_' in par_name) : 
                     mask_data = False
             ##
             if par_data is not None:
@@ -1251,6 +1253,28 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 if (mask is not None) & (mask_data):
                     par_data[where(mask)] = nan
 
+            ## integerize reflectance products
+            if (rho_as_int) & ((par[0:3] == 'rho') | (par[0:3] == 'Rrs')):
+                import numpy as np                
+                rscale = np.float32(rho_scale_factor)
+                roffset = np.float32(rho_add_offset)
+
+                ## use these to store the scale and offset
+                par_attributes['rho_scale_factor']=rscale
+                par_attributes['rho_add_offset']=roffset
+
+                ## using the NetCDF attributes does not work
+                #par_attributes['scale_factor']=rscale
+                #par_attributes['add_offset']=roffset
+
+                tmp_mask = where(np.isnan(par_data))
+                par_data = (par_data.data.astype(np.float32) - roffset) / rscale
+                par_data = par_data.astype(np.int16)
+
+                par_attributes['_FillValue']=np.int16(-32767)
+                par_data[tmp_mask]=par_attributes['_FillValue']
+                tmp_mask = None
+                
             ## write dataset to NetCDF
             nc_write(ncfile, par_name, par_data, dataset_attributes=par_attributes)
             nc_new=False

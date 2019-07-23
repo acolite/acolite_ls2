@@ -44,7 +44,8 @@
 ##                2019-03-26 (QV) added some CF dataset names
 ##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
 ##                                added check for bright scenes for cropped scenes (cropmask_skip)
-
+##                2019-07-04 (QV) added l1r_nc_delete
+##                2019-07-10 (QV) added l8_output_lt_tirs
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -106,8 +107,10 @@ def acolite_ac(bundle, odir,
                 ## Sentinel-2 target resolution
                 s2_target_res = 10,
 
-                ## L8/TIIRS BT
+                ## L8/TIRS BT
                 l8_output_bt = False,
+                l8_output_lt_tirs = False,
+
                 ## pan band use for Landsat 8
                 l8_output_pan = False, ## output L1R_pan file
                 l8_output_pan_ms = False, ## output L1R_pan_ms file at 30 m
@@ -160,6 +163,7 @@ def acolite_ac(bundle, odir,
                 ## NetCDF outputs
                 l1r_nc_compression = False,
                 l1r_nc_override = True,
+                l1r_nc_delete = False,
                 l2r_nc_compression = False,
                 nc_write = True,
                 nc_write_rhot = True,
@@ -1595,6 +1599,25 @@ def acolite_ac(bundle, odir,
             ##############################
 
             ##########################
+            ## write Lt TIRS if requested
+            if (l8_output_lt_tirs) & (sensor_family == 'Landsat') & (metadata['SATELLITE'] == 'LANDSAT_8'):
+                for band in ['10','11']:
+                    parname = 'lt{}'.format(band)
+                    ds_att = {'parameter':'Lt B{}'.format(band)}
+                    ds_att['standard_name']='toa_radiance'
+                    ds_att['units']='W/(m^2 sr^1 µm^1)'
+                    if data_type == 'NetCDF':
+                        if parname in pp.nc_datasets(bundle):
+                            data = pp.nc_data(bundle, parname)
+                        else: continue
+                    else:
+                        data = pp.landsat.get_bt(bundle, metadata, band, sub=sub, return_radiance=True)
+                    pp.output.nc_write(l2r_ncfile, parname, data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att, nc_compression=l2r_nc_compression, chunking=chunking)
+            ## end write Lt TIRS
+            ##############################
+
+
+            ##########################
             ## write latitude and longitude datasets
             if nc_write_geo:
                 print('Writing latitude and longitude to outputfiles.')
@@ -2018,6 +2041,11 @@ def acolite_ac(bundle, odir,
                 cur_gcor = None
        ## end glint correction
        ####################################
+
+        ## remove l1r_nc_files
+        if l1r_nc_delete:
+            for f in [l1r_ncfile, l1r_ncfile_pan, l1r_ncfile_pan_ms]:
+                if os.path.exists(f): os.remove(f)
 
         ## remove nc file
         if (nc_delete) & (os.path.exists(l2r_ncfile)):

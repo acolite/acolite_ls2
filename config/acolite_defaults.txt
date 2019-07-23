@@ -125,6 +125,16 @@ l1r_nc_compression=True
 l2r_nc_compression=True
 l2w_nc_compression=True
 
+# NetCDF deletion options
+l1r_nc_delete=False
+l2r_nc_delete=False
+l2w_nc_delete=False
+
+# Convert reflectance floats to scaled integers
+l2w_nc_scaled=False
+l2w_nc_scaled_offset=0.02
+l2w_nc_scaled_factor=0.0001
+
 # GeoTIFF export options
 l2r_export_geotiff=False
 l2w_export_geotiff=False
