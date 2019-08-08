@@ -71,6 +71,7 @@ exp_gamma=None
 ##
 s2_target_res=10
 l8_output_bt=False
+l8_output_lt_tirs=False
 resolved_angles=False
 resolved_angles_write=False
 
