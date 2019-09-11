@@ -23,6 +23,7 @@
 ##                2019-03-26 (QV) added CF dataset names
 ##                2019-04-09 (QV) added pan global dimensions to correspond to 2xMS extended dimensions
 ##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
+##                2019-09-11 (QV) skipping Lt in thermal channels when merging S2 tiles
 
 def acolite_toa_crop(scenes, odir, limit=None, 
                      ## skip cropped scenes that are in the "blackfill"
@@ -319,7 +320,8 @@ def acolite_toa_crop(scenes, odir, limit=None,
                                            attributes=attributes, nc_compression=nc_compression, chunking=chunking)
 
                 ## also write Lt for thermal bands
-                if band_name in metadata['BANDS_THERMAL']:
+                if (data_type == 'Landsat'):
+                    if band_name in metadata['BANDS_THERMAL']:
                         band_data = pp.landsat.get_bt(bundle, metadata, band_name, sub=sub, return_radiance=True)
                         oname = 'lt{}'.format(band_name)
                         wave = None
