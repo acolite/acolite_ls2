@@ -46,6 +46,7 @@
 ##                                added check for bright scenes for cropped scenes (cropmask_skip)
 ##                2019-07-04 (QV) added l1r_nc_delete
 ##                2019-07-10 (QV) added l8_output_lt_tirs
+##                2019-09-18 (QV) made glint correction slightly more RAM friendly for tiled dsf_path_reflectance option
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -1637,6 +1638,8 @@ def acolite_ac(bundle, odir,
                 if os.path.exists(l2r_ncfile):
                     pp.output.nc_write(l2r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'})
                     pp.output.nc_write(l2r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'})
+                del lon
+                del lat
             ## end write geo
             ##########################
 
@@ -1661,6 +1664,8 @@ def acolite_ac(bundle, odir,
                 if os.path.exists(l2r_ncfile):
                     pp.output.nc_write(l2r_ncfile, 'x', x)
                     pp.output.nc_write(l2r_ncfile, 'y', y)
+                del x
+                del y
             ## end write geo_xy
             ##########################
 
@@ -1701,6 +1706,7 @@ def acolite_ac(bundle, odir,
                             parname = 'rhot_pan_ms'
                             data = zoom(data, zoom=0.5, order=1)
                             pp.output.nc_write(l1r_ncfile_pan_ms, parname, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
+                data = None
             ## end write pan
             ##############################
 
@@ -1915,10 +1921,12 @@ def acolite_ac(bundle, odir,
             gc_swir2_idx, gc_swir2_wv = pp.shared.closest_idx(gc_waves, 2200.)
             gc_swir1_band = band_dict[ordered_bands[gc_swir1_idx]]['lut_name']
             gc_swir2_band = band_dict[ordered_bands[gc_swir2_idx]]['lut_name']
+            gc_t_keep = [gc_swir1_band, gc_swir2_band]
 
             if glint_force_band is not None:
                 gc_user_idx, gc_user_wv = pp.shared.closest_idx(gc_waves, float(glint_force_band))
                 gc_user_band = band_dict[ordered_bands[gc_user_idx]]['lut_name']
+                gc_t_keep.append(gc_user_band)
 
             ## get total atmosphere optical thickness
             if dsf_path_reflectance == 'fixed':
@@ -1956,12 +1964,9 @@ def acolite_ac(bundle, odir,
                         ttot_cur = ttot[btag]
                 else: ## tiled ttot
                     ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew)
-                gc_data['Tu'][btag] = exp(-1.*(ttot_cur/muv))
-                gc_data['Td'][btag] = exp(-1.*(ttot_cur/mus))        
-                ttot_cur = None
-
                 ## two way direct transmittance
-                gc_data['T'][btag]  = gc_data['Tu'][btag] * gc_data['Td'][btag]
+                gc_data['T'][btag]  = exp(-1.*(ttot_cur/muv)) * exp(-1.*(ttot_cur/mus))  
+                ttot_cur = None
 
                 ## fresnel reflectance ratio for SWIR1 and SWIR2
                 gc_data['Rf_SWIR1'][btag]  = Rf_sen[btag]/Rf_sen[gc_swir1_band]
@@ -1976,6 +1981,9 @@ def acolite_ac(bundle, odir,
                     gc_data['Rf_USER'][btag]  = Rf_sen[btag]/Rf_sen[gc_user_band]
                     gc_data['gc_USER'][btag]  = gc_data['T'][btag] * gc_data['Rf_USER'][btag]
 
+                ## delete transmiddance data
+                if btag not in gc_t_keep: del gc_data['T'][btag]
+                 
             ## normalise to reference band
             for b,band_name in enumerate(ordered_bands):
                 if band_name in bands_skip_thermal: continue
@@ -1985,6 +1993,9 @@ def acolite_ac(bundle, odir,
                 gc_data['gc_SWIR2'][btag] /= gc_data['T'][gc_swir2_band]
                 if glint_force_band is not None:
                     gc_data['gc_USER'][btag] /= gc_data['T'][gc_user_band]
+
+            ## remove remaining transmittance data
+            del gc_data['T']
 
             ## get swir threshold for glint correction
             gc_mask_idx, gc_mask_wave = gc_swir1_idx, gc_swir1_wv = pp.shared.closest_idx(gc_waves, glint_mask_rhos_band)
