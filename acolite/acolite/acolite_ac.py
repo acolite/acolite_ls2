@@ -1981,7 +1981,7 @@ def acolite_ac(bundle, odir,
                     gc_data['Rf_USER'][btag]  = Rf_sen[btag]/Rf_sen[gc_user_band]
                     gc_data['gc_USER'][btag]  = gc_data['T'][btag] * gc_data['Rf_USER'][btag]
 
-                ## delete transmiddance data
+                ## delete transmittance data
                 if btag not in gc_t_keep: del gc_data['T'][btag]
                  
             ## normalise to reference band
