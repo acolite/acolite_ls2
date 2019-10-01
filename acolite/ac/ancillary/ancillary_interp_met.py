@@ -78,9 +78,11 @@ def ancillary_interp_met(files, lon, lat, time, datasets=['z_wind','m_wind','pre
     
     ## do interpolation in time
     anc_data = {}
-    for dataset in datasets:
-        tinp = interpolate.interp1d(ftimes,interp_data[dataset])
-        ti = tinp(time)
-        anc_data[dataset] = {"interp":ti, "series":interp_data[dataset]}
+
+    if (time >= ftimes[0]) & (time <= ftimes[-1]):
+        for dataset in datasets:
+            tinp = interpolate.interp1d(ftimes,interp_data[dataset])
+            ti = tinp(time)
+            anc_data[dataset] = {"interp":ti, "series":interp_data[dataset]}
     
     return(anc_data)
