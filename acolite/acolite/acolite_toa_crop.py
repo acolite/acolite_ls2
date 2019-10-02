@@ -24,6 +24,7 @@
 ##                2019-04-09 (QV) added pan global dimensions to correspond to 2xMS extended dimensions
 ##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
 ##                2019-09-11 (QV) skipping Lt in thermal channels when merging S2 tiles
+##                2019-10-02 (QV) added test for MSI L1C files, skip processing for L2A files
 
 def acolite_toa_crop(scenes, odir, limit=None, 
                      ## skip cropped scenes that are in the "blackfill"
@@ -71,6 +72,10 @@ def acolite_toa_crop(scenes, odir, limit=None,
                 metafile = safe_files['metadata']['path']
                 granules = safe_files['granules']
                 metadata,bdata= pp.sentinel.scene_meta(metafile)
+                if 'PROCESSING_LEVEL' in metadata:
+                    if metadata['PROCESSING_LEVEL'] != 'Level-1C':
+                         print('Processing of {} files not supported, skipping {}'.format(metadata['PROCESSING_LEVEL'], bundle))
+                         return(1)
             except:
                 data_type = None
 

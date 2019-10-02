@@ -47,6 +47,7 @@
 ##                2019-07-04 (QV) added l1r_nc_delete
 ##                2019-07-10 (QV) added l8_output_lt_tirs
 ##                2019-09-18 (QV) made glint correction slightly more RAM friendly for tiled dsf_path_reflectance option
+##                2019-10-02 (QV) added test for MSI L1C files, skip processing for L2A files
 
 def acolite_ac(bundle, odir, 
                 scene_name=False,
@@ -283,6 +284,12 @@ def acolite_ac(bundle, odir,
         metafile = safe_files['metadata']['path']
         granules = safe_files['granules']
         metadata,bdata= pp.sentinel.scene_meta(metafile)
+
+        if 'PROCESSING_LEVEL' in metadata:
+            if metadata['PROCESSING_LEVEL'] != 'Level-1C':
+                 print('Processing of {} files not supported, skipping {}'.format(metadata['PROCESSING_LEVEL'], bundle))
+                 return(1)
+           
         ftime = metadata['TIME'].strftime('%Y-%m-%dT%H:%M:%SZ')
 
         bands = list(bdata['BandNames'].keys())
