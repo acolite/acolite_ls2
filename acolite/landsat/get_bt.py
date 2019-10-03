@@ -5,12 +5,16 @@
 ## modifications: 
 ##                2018-07-18 (QV) changed acolite import name
 ##                2019-07-10 (QV) added LTOA return
+##                2019-10-03 (QV) added fix for L7 ETM VCID band 6 (etm_vcid hi gain = 2, lo gain = 1)
 
-def get_bt(bundle, metadata, band, return_radiance = False, sub=None):
+def get_bt(bundle, metadata, band, return_radiance = False, sub=None, etm_vcid=1):
     from acolite.landsat import read_band
     from numpy import log, nan
     
     btag = 'B{}'.format(band)
+    if (metadata['SENSOR'] == 'ETM') & (band == '6'):
+        btag = '{}'.format(etm_vcid)
+
     if btag not in metadata:
         print('Band {} not found in {}.'.format(btag, bundle))
         return(None)
@@ -20,8 +24,12 @@ def get_bt(bundle, metadata, band, return_radiance = False, sub=None):
     nodata = data <= 0
 
     ## compute LTOA
-    offset = metadata['RADIANCE_ADD_BAND_{}'.format(band)]
-    slope = metadata['RADIANCE_MULT_BAND_{}'.format(band)]
+    if (metadata['SENSOR'] == 'ETM') & (band == '6'):
+        offset = metadata['RADIANCE_ADD_BAND_6_VCID_{}'.format(etm_vcid)]
+        slope = metadata['RADIANCE_MULT_BAND_6_VCID_{}'.format(etm_vcid)]
+    else:
+        offset = metadata['RADIANCE_ADD_BAND_{}'.format(band)]
+        slope = metadata['RADIANCE_MULT_BAND_{}'.format(band)]
     data=data*slope
     data+=offset
     if return_radiance:
