@@ -54,6 +54,7 @@ dsf_min_tile_aot=0.01
 dsf_plot_retrieved_tiles=True
 dsf_plot_dark_spectrum=True
 dsf_write_tiled_parameters=False
+extra_ac_parameters=False
 
 ## exponential options
 exp_swir_threshold=0.0215

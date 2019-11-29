@@ -48,8 +48,9 @@
 ##                2019-07-10 (QV) added l8_output_lt_tirs
 ##                2019-09-18 (QV) made glint correction slightly more RAM friendly for tiled dsf_path_reflectance option
 ##                2019-10-02 (QV) added test for MSI L1C files, skip processing for L2A files
+##                2019-11-29 (QV) added output of extra ac parameters (for fixed DSF only at the moment)
 
-def acolite_ac(bundle, odir, 
+def acolite_ac(bundle, odir,
                 scene_name=False,
                 limit=None,
                 aerosol_correction='dark_spectrum',
@@ -57,13 +58,13 @@ def acolite_ac(bundle, odir,
                 ## skip cropped scenes that are in the "blackfill"
                 blackfill_skip=True,
                 blackfill_max=1.0,
-                blackfill_wave=1600, 
+                blackfill_wave=1600,
 
                 ## skip cropped scenes that are largely masked
                 cropmask_skip=False,
                 cropmask_max=0.8,
-                cropmask_wave=1600, 
-                cropmask_threshold=0.1, 
+                cropmask_wave=1600,
+                cropmask_threshold=0.1,
 
                 ## old options?
                 pixel_idx=200,
@@ -74,7 +75,7 @@ def acolite_ac(bundle, odir,
                 fixed_lut='PONDER-LUT-201704-MOD2-1013mb',
                 bestfit='bands',
                 bestfit_bands=None,
-                pixel_range_min=0, 
+                pixel_range_min=0,
                 pixel_range_max=1000,
                 #map_dark_pixels = False,
 
@@ -84,13 +85,14 @@ def acolite_ac(bundle, odir,
                 dsf_model_selection='min_drmsd',
                 dsf_list_selection='intercept',
                 dsf_path_reflectance='fixed', # 'tiled'
-                dsf_plot_retrieved_tiles=True, 
+                dsf_plot_retrieved_tiles=True,
                 dsf_plot_dark_spectrum=True,
                 dsf_min_tile_cover = 0.10,
                 dsf_min_tile_aot = 0.01,
                 dsf_tile_dims = None, ## custom size of tiling grid
                 dsf_write_tiled_parameters = False,
-                dsf_force_band = None, 
+                dsf_force_band = None,
+                extra_ac_parameters=False,
 
                 ## ACOLITE exponential settings
                 exp_swir_threshold = 0.0215, ## swir non water mask
@@ -1186,6 +1188,19 @@ def acolite_ac(bundle, odir,
                 attributes['ac_rmsd']=sel_rmsd
                 print('model:{} band:{} aot={:.3f}'.format(attributes['ac_model_char'],attributes['ac_band'],attributes['ac_aot550']))
 
+                #Output additional parameters from the ac
+                if extra_ac_parameters:
+                    if attributes['ac_model_char'] == 'C':
+                        mtag = 'PONDER-LUT-201704-MOD1-1013mb'
+                    if attributes['ac_model_char'] == 'M':
+                        mtag = 'PONDER-LUT-201704-MOD2-1013mb'
+                    if attributes['ac_model_char'] == 'U':
+                        mtag = 'PONDER-LUT-201704-MOD3-1013mb'
+                    extra_ac = {}
+                    for ap in lut_data_dict[mtag]['meta']['par']:
+                        extra_ac[ap] = pp.aerlut.interplut_sensor(lut_data_dict[mtag]['lut'], lut_data_dict[mtag]['meta'],
+                                                  attributes['AZI'], attributes['THV'], attributes['THS'],
+                                                  attributes['ac_aot550'], par=ap)
                 for band in ratm_s.keys():
                      attributes['{}_ratm'.format(band)] = ratm_s[band]
                      attributes['{}_rorayl'.format(band)] = rorayl_s[band]
@@ -1194,6 +1209,10 @@ def acolite_ac(bundle, odir,
                      attributes['{}_dtott'.format(band)] = dtott_s[band]
                      attributes['{}_utott'.format(band)] = utott_s[band]
                      attributes['{}_astot'.format(band)] = astot_s[band]
+                     if extra_ac_parameters:
+                         for ap in extra_ac:
+                             atag = '{}_{}'.format(band,ap)
+                             if atag not in attributes: attributes[atag] = extra_ac[ap][band]
 
                 if dsf_plot_dark_spectrum:
                     pp.plotting.plot_dark_spectrum(metadata, ds_plot, bands, ordered_bands, data_type, ordered_waves, ratm_s, rorayl_s, rdark, rdark_sel, dsf_spectrum_option, dark_idx, tau550,sel_model_lut_meta)

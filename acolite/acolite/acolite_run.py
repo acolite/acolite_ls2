@@ -21,6 +21,7 @@
 ##                     2019-07-04 (QV) added nc_delete options, added l2w_nc integerized reflectance output
 ##                     2019-07-10 (QV) added output of TIRS Lt
 ##                     2019-07-16 (QV) generalised variable copy from settings to config
+##                     2019-11-29 (QV) added extra ac parameters output for fixed DSF
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -194,6 +195,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         dsf_plot_retrieved_tiles=setu['dsf_plot_retrieved_tiles'],
                                                         dsf_plot_dark_spectrum=setu['dsf_plot_dark_spectrum'],
                                                         dsf_write_tiled_parameters=setu['dsf_write_tiled_parameters'],
+                                                        extra_ac_parameters=setu['extra_ac_parameters'],
 
                                                         ## for exponential
                                                         exp_swir_threshold=float(setu['exp_swir_threshold']),
