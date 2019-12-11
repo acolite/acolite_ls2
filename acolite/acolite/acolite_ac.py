@@ -49,6 +49,7 @@
 ##                2019-09-18 (QV) made glint correction slightly more RAM friendly for tiled dsf_path_reflectance option
 ##                2019-10-02 (QV) added test for MSI L1C files, skip processing for L2A files
 ##                2019-11-29 (QV) added output of extra ac parameters (for fixed DSF only at the moment)
+##                2019-12-11 (QV) added output of extra ac parameters for tiled DSF
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -735,6 +736,7 @@ def acolite_ac(bundle, odir,
                 ## required ac parameters - use this approach also for fixed and tiled processing?
                 ac_pars = ['romix','rorayl','dtotr','utotr',
                            'dtott','utott','astot', 'ttot']
+                if extra_ac_parameters: ac_pars = lut_data_dict[luts[0]]['meta']['par']
                 if (data_type == 'Sentinel'):
                     tp_dim = grmeta['VIEW']['Average_View_Zenith'].shape
                     ## setup interpolation grid here
@@ -890,6 +892,11 @@ def acolite_ac(bundle, odir,
                 tags = ['tau550', 'band', 'model']
                 tile_output = {tag: zeros(tiles)+nan for tag in tags}
                 tags = ['ratm', 'rorayl','dtott', 'utott', 'astot']
+                
+                ## add extra ac parameters output
+                if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                    for p in lut_data_dict[luts[0]]['meta']['par']:
+                        if p not in tags: tags.append(p)
                 tile_output['atm'] = {band:{tag: zeros(tiles)+nan for tag in tags} for band in ordered_bands}
 
                 ## run through tiles
@@ -934,6 +941,14 @@ def acolite_ac(bundle, odir,
                         cur_thv = 1.0*metadata_tile['THV']
                         cur_ths = 1.0*metadata_tile['THS']
 
+                        ## output extra ac parameters
+                        if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                            extra_ac = {}
+                            for ap in lut_data_dict[luts[0]]['meta']['par']:
+                                if ap in ['ratm', 'rorayl','dtott', 'utott', 'astot']: continue
+                                extra_ac[ap] = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta,
+                                                  cur_azi, cur_thv, cur_ths, tau550, par=ap)
+
                         ## store retrievals per band
                         for b,band_name in enumerate(ordered_bands):
                             if band_name in bands_skip_corr: continue
@@ -946,6 +961,11 @@ def acolite_ac(bundle, odir,
                             tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_dict[band_name]['lut_name']]
                             tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_dict[band_name]['lut_name']]
                             tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_dict[band_name]['lut_name']]
+
+                            ## if output extra ac parameters
+                            if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                                for ap in extra_ac:
+                                    tile_output['atm'][band_name][ap][yi,xi] = extra_ac[ap][band_dict[band_name]['lut_name']]
 
                             ## glint in tiled mode
                             if glint_correction:
@@ -970,6 +990,10 @@ def acolite_ac(bundle, odir,
                                 tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_name]
                                 tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_name]
                                 tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_name]
+                                ## if output extra ac parameters
+                                if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                                    for ap in extra_ac:
+                                        tile_output['atm'][band_name][ap][yi,xi] = extra_ac[ap][band_name]
                             else:
                                 ob_sensor = 'L8_OLI_ORANGE'
                                 ac_model = sel_model_lut_meta['base']
@@ -1536,6 +1560,16 @@ def acolite_ac(bundle, odir,
                                 pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(wave), ratm_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                 pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(wave), dutott_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                 pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(wave), astot_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+
+                                ## output extra ac parameters
+                                if extra_ac_parameters: 
+                                    for ap in tile_output['atm'][band_name]:
+                                        if ap in ['ratm', 'astot', 'dutott']: continue
+                                        if (dsf_path_reflectance == 'tiled'):
+                                            ap_cur =  pp.ac.tiles_interp(tile_output['atm'][band_name][ap], xnew, ynew)
+                                        else:
+                                            ap_cur =  pp.ac.tiles_interp(ac_data[btag][ap], tp_xnew, tp_ynew)
+                                        pp.output.nc_write(l2r_ncfile, '{}_{}'.format(ap, wave), ap_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                 l2r_nc_new = False
                                 
                         ## compute surface reflectance
@@ -1858,11 +1892,6 @@ def acolite_ac(bundle, odir,
                             ratm_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['ratm'], xnew, ynew)
                             astot_cur = pp.ac.tiles_interp(tile_output['atm'][btag]['astot'], xnew, ynew)
                             dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][btag]['dtott']*tile_output['atm'][btag]['utott'], xnew, ynew)
-                            if dsf_write_tiled_parameters:
-                                pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(ob_wave), ratm_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(ob_wave), dutott_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(ob_wave), astot_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                l2r_nc_new = False
 
                         ## write Rayleigh corrected reflectance
                         if nc_write_rhorc:
@@ -1892,6 +1921,18 @@ def acolite_ac(bundle, odir,
                         elif dsf_path_reflectance == 'tiled':
                             rhos_data = (band_data/ttg_cur) - ratm_cur
                             rhos_data = (rhos_data) / (dutott_cur + astot_cur * rhos_data)
+                            if dsf_write_tiled_parameters:
+                                pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(ob_wave), ratm_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(ob_wave), dutott_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(ob_wave), astot_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+
+                                ## if output extra ac parameters
+                                if extra_ac_parameters: 
+                                    for ap in tile_output['atm'][btag]:
+                                        if ap in ['ratm', 'astot', 'dutott']: continue
+                                        ap_cur =  pp.ac.tiles_interp(tile_output['atm'][btag][ap], xnew, ynew)
+                                        pp.output.nc_write(l2r_ncfile, '{}_{}'.format(ap, ob_wave), ap_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                l2r_nc_new = False
                         band_data = None
                     else:
                         rhos_data = band_data * 1.0
