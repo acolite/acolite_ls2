@@ -32,7 +32,9 @@ def scene_meta(metafile):
 
     for tag in tags:
         tdom = xmldoc.getElementsByTagName(tag)
-        if len(tdom) > 0: metadata[tag] = tdom[0].firstChild.nodeValue
+        if len(tdom) > 0: 
+            if tdom[0].firstChild is not None:
+                metadata[tag] = tdom[0].firstChild.nodeValue
 
     ##
     tdom = xmldoc.getElementsByTagName('Special_Values')
