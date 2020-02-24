@@ -22,6 +22,7 @@
 ##                     2019-07-10 (QV) added output of TIRS Lt
 ##                     2019-07-16 (QV) generalised variable copy from settings to config
 ##                     2019-11-29 (QV) added extra ac parameters output for fixed DSF
+##                     2020-02-24 (QV) added output of lat/lon to geotiff
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -49,14 +50,6 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
             setu['l8_output_bt'] = True
         if ('lt10' in setu['l2w_parameters']) or ('lt11' in setu['l2w_parameters']):
             setu['l8_output_lt_tirs'] = True
-    
-    ## making sure that the type is a list for the next step
-    if setu['l2w_parameters'] is not None and type(setu['l2w_parameters']) is not list: 
-        setu['l2w_parameters'] = [setu['l2w_parameters']]
-    
-    ## removing any space between commas and the parameter name.
-    if setu['l2w_parameters'] is not None: 
-        setu['l2w_parameters'] = [par.strip() for par in setu['l2w_parameters'] if par]
 
     if (gui) & (setu['ancillary_data']): 
         print('Disabling ancillary data in GUI due to download bug.')
@@ -259,7 +252,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         ## output GeoTIFF
         if (setu['l2r_export_geotiff']) & (len(ret) > 0):
             if type(ret) is not list: ret = [ret]
-            for f in ret: nc_to_geotiff(f)
+            for f in ret: nc_to_geotiff(f, skip_geo=(not setu['export_geotiff_coordinates']))
 
         ## map RGB
         if (setu['rgb_rhot'] or setu['rgb_rhos'])  & (len(ret) > 0):
@@ -313,7 +306,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
                 ## output GeoTIFF
                 if setu['l2w_export_geotiff']:
-                    for f in ret: nc_to_geotiff(f)
+                    for f in ret: nc_to_geotiff(f, skip_geo=(not setu['export_geotiff_coordinates']))
                 print(ret)
 
                 ## map l2w parameters

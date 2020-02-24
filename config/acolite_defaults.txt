@@ -140,3 +140,4 @@ l2w_nc_scaled_factor=0.0001
 # GeoTIFF export options
 l2r_export_geotiff=False
 l2w_export_geotiff=False
+export_geotiff_coordinates=False
