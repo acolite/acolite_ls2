@@ -6,6 +6,8 @@
 ## modifications:
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-11-19 (QV) added verbosity option, fixed the download_file script for the GUI
+##                2020-03-10 (QV) added autoremove for files that are too small
+
 def ancillary_download(date=None, ancillary_files=None, time=None, 
                        file_types = ['TOAST','O3_AURAOMI_24h','MET_NCEP_6h','MET_NCEP_NEXT'], 
                        local_dir = "/storage/Data/MET", download=True, override = False, verbosity=0, 
@@ -34,6 +36,18 @@ def ancillary_download(date=None, ancillary_files=None, time=None,
 
             if download:
                 ## download file
+                ## test if file is large enough
+                if os.path.exists(local_file):
+                    st = os.stat(local_file)
+                    size = st.st_size / (1024 * 1024)
+                    if size < 0.05: ## 50Kb
+                        if verbosity > 0: print('Removing {} with too small size {:.2f}Mb'.format(os.path.basename(local_file), size))
+                        try:
+                            os.remove(local_file)
+                            if verbosity > 0: print('Deleted {}'.format(local_file))
+                        except:
+                            if verbosity > 0: print('Could not remove {}'.format(local_file))
+
                 if os.path.exists(local_file) & (not override):
                     if verbosity > 1: print('File {} exists'.format(basefile))
                     local_files.append(local_file)
