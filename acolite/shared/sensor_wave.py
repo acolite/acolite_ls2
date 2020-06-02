@@ -5,6 +5,7 @@
 ## modifications: 
 ##                2018-07-18 (QV) changed acolite import name
 ##                2020-03-02 (QV) added ceil to number of elements in linspace
+##                2020-06-02 (SV) pass ceil to int to ensure that linspace gets an integer argument
 
 def sensor_wave(satsen, wave_range = (0.39,2.4), wave_step = 0.001):
     from numpy import linspace, ceil
@@ -14,7 +15,7 @@ def sensor_wave(satsen, wave_range = (0.39,2.4), wave_step = 0.001):
     rsr_file = pp_path+'/RSR/'+satsen+'.txt'
     rsr, rsr_bands = rsr_read(file=rsr_file)
     
-    wave_hyper = linspace(wave_range[0],wave_range[1],ceil(((wave_range[1]-wave_range[0])/wave_step)+2))
+    wave_hyper = linspace(wave_range[0],wave_range[1],int(ceil(((wave_range[1]-wave_range[0])/wave_step)+2)))
 
     rsr_wave = rsr_convolute_dict(wave_hyper, wave_hyper, rsr)
     waves = {rband:'{:.0f}'.format(round(rsr_wave[rband]*1000.)) for rband in rsr_wave}
