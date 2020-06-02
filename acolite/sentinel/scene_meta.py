@@ -14,7 +14,7 @@ def scene_meta(metafile):
     from xml.dom import minidom
         
     from acolite.shared import distance_se
-    from numpy import linspace
+    from numpy import linspace, ceil
 
     try: 
         xmldoc = minidom.parse(metafile)
