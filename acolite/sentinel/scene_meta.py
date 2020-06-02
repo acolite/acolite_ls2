@@ -7,6 +7,7 @@
 ##                2017-11-22 (QV) added defaults for the model selection
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-10-01 (QV) removed obsolete bits
+##                2020-06-02 (SV) ensure that linspace gets an integer as its third argument
 
 def scene_meta(metafile):
     import dateutil.parser
@@ -72,7 +73,7 @@ def scene_meta(metafile):
         if len(tag) > 0:
             step = float(tag[0].getElementsByTagName('STEP')[0].firstChild.nodeValue)
             rsr = [float(rs) for rs in tag[0].getElementsByTagName('VALUES')[0].firstChild.nodeValue.split(' ')]
-            wave = linspace(banddata['Wavelength'][band]['MIN'],banddata['Wavelength'][band]['MAX'], ((banddata['Wavelength'][band]['MAX']-banddata['Wavelength'][band]['MIN'])/step)+1)                                                                                                                                                            
+            wave = linspace(banddata['Wavelength'][band]['MIN'],banddata['Wavelength'][band]['MAX'], int(ceil(((banddata['Wavelength'][band]['MAX']-banddata['Wavelength'][band]['MIN'])/step)+1)))                                                                                                                                                            
         banddata['RSR'][band] = {'response':rsr, 'wave':wave}
     #print(banddata['Wavelength'])
 
