@@ -11,18 +11,18 @@
 def scene_meta(metafile):
     import dateutil.parser
     from xml.dom import minidom
-        
+
     from acolite.shared import distance_se
     from numpy import linspace
 
-    try: 
+    try:
         xmldoc = minidom.parse(metafile)
-    except: 
+    except:
         print('Error opening metadata file.')
         sys.exit()
-        
+
     xml_main = xmldoc.firstChild
-    
+
     metadata = {}
 
     tags = ['PRODUCT_START_TIME','PRODUCT_STOP_TIME','PRODUCT_URI','PROCESSING_LEVEL',
@@ -32,7 +32,7 @@ def scene_meta(metafile):
 
     for tag in tags:
         tdom = xmldoc.getElementsByTagName(tag)
-        if len(tdom) > 0: 
+        if len(tdom) > 0:
             if tdom[0].firstChild is not None:
                 metadata[tag] = tdom[0].firstChild.nodeValue
 
@@ -72,7 +72,7 @@ def scene_meta(metafile):
         if len(tag) > 0:
             step = float(tag[0].getElementsByTagName('STEP')[0].firstChild.nodeValue)
             rsr = [float(rs) for rs in tag[0].getElementsByTagName('VALUES')[0].firstChild.nodeValue.split(' ')]
-            wave = linspace(banddata['Wavelength'][band]['MIN'],banddata['Wavelength'][band]['MAX'], ((banddata['Wavelength'][band]['MAX']-banddata['Wavelength'][band]['MIN'])/step)+1)                                                                                                                                                            
+            wave = linspace(banddata['Wavelength'][band]['MIN'],banddata['Wavelength'][band]['MAX'], int((banddata['Wavelength'][band]['MAX']-banddata['Wavelength'][band]['MIN'])/step)+1)
         banddata['RSR'][band] = {'response':rsr, 'wave':wave}
     #print(banddata['Wavelength'])
 
@@ -110,7 +110,7 @@ def scene_meta(metafile):
         metadata['SATELLITE_SENSOR'] = 'S2A_MSI'
         metadata['RGB_BANDS']= [497,560,664]
         metadata['WAVES']= ['444', '497', '560', '664', '704', '740', '782', '835', '865',  '945', '1374', '1614', '2202'] #
-    
+
     if metadata['SATELLITE'] == 'Sentinel-2B':
         metadata['SATELLITE_SENSOR'] = 'S2B_MSI'
         metadata['RGB_BANDS']= [497,560,664]

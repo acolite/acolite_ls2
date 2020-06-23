@@ -7,13 +7,13 @@
 
 def rsr_convolute_dict(wave_data, data, rsr, wave_range=[0.2,2.4], wave_step=0.001):
     from numpy import linspace, interp, nan, zeros, ceil
-    
+
     ## set up wavelength space
-    wave_hyper = linspace(wave_range[0],wave_range[1],ceil(((wave_range[1]-wave_range[0])/wave_step)+2))
+    wave_hyper = linspace(wave_range[0],wave_range[1],int(((wave_range[1]-wave_range[0])/wave_step)+2))
 
     ## interpolate RSR to same dimensions
     rsr_hyper = dict()
-    for band in rsr: 
+    for band in rsr:
                 band_wave_hyper = wave_hyper
                 band_response_hyper = interp(wave_hyper, rsr[band]['wave'], rsr[band]['response'], left=0, right=0)
                 band_response_sum = sum(band_response_hyper)
@@ -21,6 +21,6 @@ def rsr_convolute_dict(wave_data, data, rsr, wave_range=[0.2,2.4], wave_step=0.0
 
     resdata={}
     data_hyper = interp(wave_hyper, wave_data, data, left=0, right=0)
-    for band in rsr: 
+    for band in rsr:
         resdata[band] = (sum(data_hyper*rsr_hyper[band]['response'])/rsr_hyper[band]['sum'])
     return resdata
