@@ -23,6 +23,7 @@
 ##                     2019-07-16 (QV) generalised variable copy from settings to config
 ##                     2019-11-29 (QV) added extra ac parameters output for fixed DSF
 ##                     2020-02-24 (QV) added output of lat/lon to geotiff
+##                     2020-03-08 (QV) added lut selection to settings file
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -37,7 +38,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     ## set variables from settings file if not directly provided by user
     if (inputfile is not None): setu['inputfile'] = inputfile
     if (output is not None): setu['output'] = output
-    if (merge_tiles is not None): setu['merge_tiles'] = merge_tiles 
+    if (merge_tiles is not None): setu['merge_tiles'] = merge_tiles
     if (limit is not None): setu['limit'] = limit
 
     if 'l2w_parameters' not in setu:
@@ -46,11 +47,11 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         if len(setu['l2w_parameters']) == 0: setu['l2w_parameters']=None
 
      ## making sure that the type is a list for the next step
-    if setu['l2w_parameters'] is not None and type(setu['l2w_parameters']) is not list: 
+    if setu['l2w_parameters'] is not None and type(setu['l2w_parameters']) is not list:
         setu['l2w_parameters'] = [setu['l2w_parameters']]
 
     ## removing any space between commas and the parameter name.
-    if setu['l2w_parameters'] is not None: 
+    if setu['l2w_parameters'] is not None:
         setu['l2w_parameters'] = [par.strip() for par in setu['l2w_parameters'] if par]
 
     if setu['l2w_parameters'] is not None:
@@ -59,7 +60,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         if ('lt10' in setu['l2w_parameters']) or ('lt11' in setu['l2w_parameters']):
             setu['l8_output_lt_tirs'] = True
 
-    if (gui) & (setu['ancillary_data']): 
+    if (gui) & (setu['ancillary_data']):
         print('Disabling ancillary data in GUI due to download bug.')
         print('Please use the CLI for ancillary download.')
         setu['ancillary_data'] = False
@@ -76,13 +77,13 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     if (setu['inputfile'] is None):
         print('No inputfile given. Exiting.')
         raise BaseException('InputError')
-    
+
     ## set output if not defined
-    if ('output' not in setu): 
+    if ('output' not in setu):
         setu['output'] = os.path.dirname(inputfile[0])
 
     ## force limit to None if not provided
-    if ('limit' not in setu): 
+    if ('limit' not in setu):
         setu['limit'] = None
 
     ## make gains into list of floats
@@ -96,12 +97,12 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     except:
         print('No write access to the output directory: {}'.format(setu['output']))
         raise BaseException('WriteError')
-    
+
     ## time of processing start
     time_start = datetime.datetime.now()
     time_start_str = time_start.strftime('%Y_%m_%d_%H_%M_%S')
     if 'runid'not in setu: setu['runid']=time_start.strftime('%Y%m%d_%H%M%S')
-    
+
     print('Started ACOLITE Python processing')
 
     ## write settings
@@ -111,7 +112,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
     ## convert inputfile into a list
     inputfile = setu['inputfile'] if type(setu['inputfile']) is list else [setu['inputfile']]
-    
+
     l8_output_pan_ms, l8_output_orange, nc_write_rhorc = False, False, False
     if (setu['l2w_parameters'] is not None):
         ## check if rhorc output is needed
@@ -130,13 +131,13 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         ni = len(inputfile)
         print('Merging {} tile{}...'.format(ni,'' if ni == 1 else 's'))
         ### run toa crop netcdf for these scenes and limit
-        scenes = acolite.acolite_toa_crop(inputfile, setu['output'], 
-                                          limit=setu['limit'], 
-                                          blackfill_skip=setu['blackfill_skip'], 
-                                          blackfill_max=setu['blackfill_max'], 
-                                          blackfill_wave=setu['blackfill_wave'], 
-                                          s2_target_res=setu['s2_target_res'], 
-                                          l8_output_pan=setu['rgb_pan_sharpen'], 
+        scenes = acolite.acolite_toa_crop(inputfile, setu['output'],
+                                          limit=setu['limit'],
+                                          blackfill_skip=setu['blackfill_skip'],
+                                          blackfill_max=setu['blackfill_max'],
+                                          blackfill_wave=setu['blackfill_wave'],
+                                          s2_target_res=setu['s2_target_res'],
+                                          l8_output_pan=setu['rgb_pan_sharpen'],
                                           l8_output_pan_ms=l8_output_pan_ms,
                                           nc_write_geo_xy=setu['xy_output'])
         if type(scenes) is int:
@@ -160,14 +161,16 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         print('Processing scene {} of {}...'.format(sc+1, nsc))
 
         ## run acolite_py with given settings dict for this scene
-        ret = acolite.acolite_ac(scene, setu['output'], limit=setu['limit'], 
+        ret = acolite.acolite_ac(scene, setu['output'], limit=setu['limit'],
                                                         ## select aerosol correction
-                                                        aerosol_correction=setu['aerosol_correction'], 
+                                                        aerosol_correction=setu['aerosol_correction'],
+                                                        ## luts to use
+                                                        luts=setu['luts'],
 
                                                         ## skip cropped scenes in the blackfill
-                                                        blackfill_skip=setu['blackfill_skip'], 
-                                                        blackfill_max=setu['blackfill_max'], 
-                                                        blackfill_wave=setu['blackfill_wave'], 
+                                                        blackfill_skip=setu['blackfill_skip'],
+                                                        blackfill_max=setu['blackfill_max'],
+                                                        blackfill_wave=setu['blackfill_wave'],
 
                                                         ## generic settings
                                                         ancillary_data=setu['ancillary_data'],
@@ -204,6 +207,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         dsf_plot_retrieved_tiles=setu['dsf_plot_retrieved_tiles'],
                                                         dsf_plot_dark_spectrum=setu['dsf_plot_dark_spectrum'],
                                                         dsf_write_tiled_parameters=setu['dsf_write_tiled_parameters'],
+                                                        dsf_wave_range=[float(setu['dsf_wave_range'][0]), float(setu['dsf_wave_range'][1])],
+                                                        dsf_exclude_bands=setu['dsf_exclude_bands'],
                                                         extra_ac_parameters=setu['extra_ac_parameters'],
 
                                                         ## for exponential
@@ -246,14 +251,14 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
                                                         ## L8 output PAN band
                                                         l8_output_pan=setu['rgb_pan_sharpen'],
-                                                        l8_output_pan_ms=l8_output_pan_ms, 
+                                                        l8_output_pan_ms=l8_output_pan_ms,
                                                         l8_output_orange=l8_output_orange,
                                                         ## output of easting and northing
                                                         nc_write_geo_xy=setu['xy_output'],
                                                         ## output Rayleigh corrected reflectances
                                                         nc_write_rhorc=nc_write_rhorc
                                                         )
-        if type(ret) is not int: 
+        if type(ret) is not int:
             l2r_files+=ret
         else: continue
 
@@ -265,10 +270,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
         ## map RGB
         if (setu['rgb_rhot'] or setu['rgb_rhos'])  & (len(ret) > 0):
             print('Mapping RGB from {}'.format(ret[0]))
-            for retf in ret: 
-                acolite.acolite_map(ret[0], setu['output'], rgb_rhot=setu['rgb_rhot'], rgb_rhos=setu['rgb_rhos'], 
-                                         map_title=setu['map_title'], 
-                                         map_colorbar=setu['map_colorbar'], 
+            for retf in ret:
+                acolite.acolite_map(ret[0], setu['output'], rgb_rhot=setu['rgb_rhot'], rgb_rhos=setu['rgb_rhos'],
+                                         map_title=setu['map_title'],
+                                         map_colorbar=setu['map_colorbar'],
                                          map_colorbar_orientation=setu["map_colorbar_orientation"],
                                          mapped=setu["map_projected"], map_raster=setu["map_raster"],
                                          map_scalebar=setu["map_scalebar"],
@@ -304,8 +309,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                           l2w_mask_cirrus=setu['l2w_mask_cirrus'],
                                           l2w_mask_cirrus_threshold=float(setu['l2w_mask_cirrus_threshold']),
                                           nc_compression=setu['l2w_nc_compression'],
-                                          rho_as_int = setu['l2w_nc_scaled'], 
-                                          rho_scale_factor=setu['l2w_nc_scaled_factor'], 
+                                          rho_as_int = setu['l2w_nc_scaled'],
+                                          rho_scale_factor=setu['l2w_nc_scaled_factor'],
                                           rho_add_offset=setu['l2w_nc_scaled_offset'])
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
@@ -321,10 +326,10 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                 if setu['map_l2w']:
                     for f in ret:
                         print('Mapping L2W parameters from {}'.format(f))
-                        acolite.acolite_map(f, setu['output'], parameters=setu['l2w_parameters'], 
-                                             auto_range=setu['map_auto_range'], 
-                                             map_title=setu['map_title'], 
-                                             map_colorbar=setu['map_colorbar'], 
+                        acolite.acolite_map(f, setu['output'], parameters=setu['l2w_parameters'],
+                                             auto_range=setu['map_auto_range'],
+                                             map_title=setu['map_title'],
+                                             map_colorbar=setu['map_colorbar'],
                                              map_colorbar_orientation=setu["map_colorbar_orientation"],
                                              mapped=setu["map_projected"], map_raster=setu["map_raster"],
                                              map_scalebar=setu["map_scalebar"],
@@ -333,7 +338,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                              map_scalelen=setu["map_scalelen"],
                                              map_colorbar_edge=setu["map_colorbar_edge"],
                                              max_dim=float(setu["map_max_dim"]),
-                                             map_points=setu["map_points"], map_fillcolor=setu['map_fillcolor'], 
+                                             map_points=setu["map_points"], map_fillcolor=setu['map_fillcolor'],
                                              rgb_pan_sharpen=setu['rgb_pan_sharpen'])
 
                 if setu['l2w_nc_delete']:

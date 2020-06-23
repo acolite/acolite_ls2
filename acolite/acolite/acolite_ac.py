@@ -1,5 +1,5 @@
 ## def acolite_ac
-## 
+##
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## Apr-June 2017
 ## modifications: QV 2017-06-07 merged separate Landsat/Sentinel developments
@@ -50,6 +50,8 @@
 ##                2019-10-02 (QV) added test for MSI L1C files, skip processing for L2A files
 ##                2019-11-29 (QV) added output of extra ac parameters (for fixed DSF only at the moment)
 ##                2019-12-11 (QV) added output of extra ac parameters for tiled DSF
+##                2020-06-22 (QV) added new sky reflectance correction taking the aerosol load into account (for fixed DSF)
+##                                added option to skip bands from the DSF (e.g. SWIR bands on S2)
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -93,6 +95,8 @@ def acolite_ac(bundle, odir,
                 dsf_tile_dims = None, ## custom size of tiling grid
                 dsf_write_tiled_parameters = False,
                 dsf_force_band = None,
+                dsf_wave_range = [400,2500],
+                dsf_exclude_bands = [],
                 extra_ac_parameters=False,
 
                 ## ACOLITE exponential settings
@@ -125,19 +129,19 @@ def acolite_ac(bundle, odir,
                 ## pressure
                 lut_pressure = True,
                 dem_pressure = False,
-                dem_pressure_percentile = 25, 
+                dem_pressure_percentile = 25,
                 pressure = None,
-                elevation = None, 
-                
+                elevation = None,
+
                 ## apply gas corrections at TOA
-                gas_transmittance = True, 
+                gas_transmittance = True,
                 uoz_default = 0.3,
                 uwv_default = 1.5,
                 wvlut = '201710C',
 
                 ## resolve the view/illumination angles during processing (for S2 only currently)
                 resolved_angles=False,
-                resolved_angles_write=False, 
+                resolved_angles_write=False,
 
                 ## use ancillary data for gas transmittances rather than defaults
                 ancillary_data = True,
@@ -163,7 +167,7 @@ def acolite_ac(bundle, odir,
                 gains_s2b_msi=[1,1,1,1,1,1,1,1,1,1,1,1,1],
 
                 ## max wavelength to check for l2_negatives
-                neg_wave = 900, 
+                neg_wave = 900,
 
                 ## NetCDF outputs
                 l1r_nc_compression = False,
@@ -176,11 +180,11 @@ def acolite_ac(bundle, odir,
                 nc_write_rhos = True,
                 nc_write_rhow = False,
                 nc_write_geo = True,
-                nc_write_geo_xy = False, 
+                nc_write_geo_xy = False,
                 nc_delete=False,
                 nc_compression=True,
                 chunking=True,
-                
+
                 ## debugging
                 verbosity=0,
                 ret_rdark=False):
@@ -202,7 +206,7 @@ def acolite_ac(bundle, odir,
     #####################
     ## find out input file type
     data_type=None
-    if '.nc' in bundle: 
+    if '.nc' in bundle:
         try:
             metadata = pp.shared.nc_gatts(bundle)
             data_type = "NetCDF"
@@ -215,7 +219,7 @@ def acolite_ac(bundle, odir,
             data_type = "Landsat"
         except:
             data_type = None
-        
+
     if data_type is None:
         safe_files = pp.sentinel.safe_test(bundle)
         try:
@@ -239,7 +243,7 @@ def acolite_ac(bundle, odir,
     if data_type == 'NetCDF':
         sensor_family = ''
         metadata['TIME'] = dateutil.parser.parse(metadata['TIME'])
-      
+
         if 'LANDSAT' in metadata['SATELLITE']:
             sensor_family = 'Landsat'
             bands = metadata['BANDS_ALL'].split(',')
@@ -255,14 +259,14 @@ def acolite_ac(bundle, odir,
             waves = metadata['WAVES']
             #bands_skip_corr = ['B9','B10']
             resolution = 10
-            
+
         granules = [bundle]
         ## make band dict
         band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[],
                                 'resolution':resolution,
                                 'index':b, 'index_name':bands[b], 'lut_name':'{}'.format(band_name.lstrip('B'))}
                                  for b, band_name in enumerate(band_names)}
-            
+
     if data_type == 'Landsat':
         sensor_family = 'Landsat'
         bands = metadata['BANDS_ALL']
@@ -271,15 +275,15 @@ def acolite_ac(bundle, odir,
         granules = [bundle]
         ## make band dict Landsat
         if metadata['SENSOR'] == 'ALI':
-            band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[], 
+            band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[],
                                     'resolution':30,
-                                    'index':b, 'index_name':bands[b], 'lut_name':bands[b]} 
+                                    'index':b, 'index_name':bands[b], 'lut_name':bands[b]}
                                      for b, band_name in enumerate(band_names)}
 
         else:
-            band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[], 
+            band_dict = {band_name:{'name':band_name, 'wave': waves[b], 'F0':[],
                                 'resolution':30,
-                                'index':int(bands[b]), 'index_name':bands[b], 'lut_name':bands[b]} 
+                                'index':int(bands[b]), 'index_name':bands[b], 'lut_name':bands[b]}
                                  for b, band_name in enumerate(band_names)}
 
     if data_type == 'Sentinel':
@@ -292,23 +296,23 @@ def acolite_ac(bundle, odir,
             if metadata['PROCESSING_LEVEL'] != 'Level-1C':
                  print('Processing of {} files not supported, skipping {}'.format(metadata['PROCESSING_LEVEL'], bundle))
                  return(1)
-           
+
         ftime = metadata['TIME'].strftime('%Y-%m-%dT%H:%M:%SZ')
 
         bands = list(bdata['BandNames'].keys())
         waves = ['{0:0.0f}'.format(bdata['Wavelength'][i]['CENTRAL']) for i in bands]
         band_names = [bdata['BandNames'][i] for i in bands]
-        
+
         ## make band dict Sentinel
-        band_dict = {band_name:{'name':band_name, 'wave': float(waves[b]), 'F0':bdata['F0'][bands[b]], 
+        band_dict = {band_name:{'name':band_name, 'wave': float(waves[b]), 'F0':bdata['F0'][bands[b]],
                                 'resolution':bdata['Resolution'][bands[b]],
-                                'index':int(bands[b]), 'index_name':bands[b], 'lut_name':'{}'.format(band_name.lstrip('B'))} 
+                                'index':int(bands[b]), 'index_name':bands[b], 'lut_name':'{}'.format(band_name.lstrip('B'))}
                                  for b, band_name in enumerate(band_names)}
 
     ## get RSR wavelengths
     swaves = pp.shared.sensor_wave(metadata['SATELLITE_SENSOR'])
     for b in swaves:
-        for d in band_dict: 
+        for d in band_dict:
             if band_dict[d]['lut_name'] == b:
                 band_dict[d]['wave'] = int(swaves[b])
 
@@ -325,22 +329,22 @@ def acolite_ac(bundle, odir,
     bands_skip_thermal = []
     bands_skip_corr = []
 
-    if sensor_family == 'Landsat': 
-        if metadata['SATELLITE'] == 'LANDSAT_5' : 
+    if sensor_family == 'Landsat':
+        if metadata['SATELLITE'] == 'LANDSAT_5' :
             bands_skip_corr = ['6']
             bands_skip_thermal = ['6']
             gains_dict = {bn:gains_l5_tm[bi] for bi,bn in enumerate(['1','2','3','4','5','7'])}
-        if metadata['SATELLITE'] == 'LANDSAT_7' : 
+        if metadata['SATELLITE'] == 'LANDSAT_7' :
             bands_skip_corr = ['6','8']
             bands_skip_thermal = ['6']
             gains_dict = {bn:gains_l7_etm[bi] for bi,bn in enumerate(['1','2','3','4','5','7'])}
-        if metadata['SATELLITE'] == 'LANDSAT_8' : 
+        if metadata['SATELLITE'] == 'LANDSAT_8' :
             ob_cfg = None
             bands_skip_corr = ['8','9','10','11']
             bands_skip_thermal = ['10','11']
             #gains_dict = {bn:gains_l8_oli[bi] for bi,bn in enumerate(ordered_bands) if bn not in bands_skip_corr}
             gains_dict = {bn:gains_l8_oli[bi] for bi,bn in enumerate(['1','2','3','4','5','6','7']) if bn not in bands_skip_corr}
-        if metadata['SATELLITE'] == 'EO1' : 
+        if metadata['SATELLITE'] == 'EO1' :
             bands_skip_corr = []
             bands_skip_thermal = []
             gains_eo1_tm = [1.0 for bi,bn in enumerate(ordered_bands) if bn not in bands_skip_corr]
@@ -348,7 +352,7 @@ def acolite_ac(bundle, odir,
 
         if dsf_tile_dims is None:
             dsf_tile_dims = [201,201] # 6x6 km
-    elif sensor_family == 'Sentinel': 
+    elif sensor_family == 'Sentinel':
         if "S2A" in metadata['SATELLITE_SENSOR']:
             gains_dict = {bn:gains_s2a_msi[bi] for bi,bn in enumerate(ordered_bands)}
         if "S2B" in metadata['SATELLITE_SENSOR']:
@@ -363,20 +367,23 @@ def acolite_ac(bundle, odir,
 
     ## make output directory
     if os.path.exists(odir) is False: os.makedirs(odir)
-        
+
     ## see if a NetCDF file needs to be generated
     nc_write = (nc_write) & (nc_write_rhot | nc_write_rhorc | nc_write_rhos | nc_write_geo)
-    
+
     ## set up some variables
     sensor = metadata['SATELLITE_SENSOR']
     sat, sen = sensor.split('_')
+
+    ## get rsr
+    rsr_file = pp.config['pp_data_dir']+'/RSR/'+sensor+'.txt'
+    rsr, rsr_bands = pp.shared.rsr_read(file=rsr_file)
 
     ## make them float
     waves = [float(w) for w in waves]
 
     ## run through granules (will be one for Landsat, almost always one for S2)
     for granule in granules:
-        
         l2r_nc_new = True
         ptime = time.strftime('%Y-%m-%d %H:%M:%S')
         print('{} - Processing {}'.format(ptime,granule))
@@ -407,7 +414,7 @@ def acolite_ac(bundle, odir,
             else:
                 tile_code = '{}{}'.format(metadata['PATH'].zfill(3),metadata['ROW'].zfill(3))
                 oname = '{}_{}_{}'.format(sensor,metadata['TIME'].strftime('%Y_%m_%d_%H_%M_%S'), tile_code)
-                
+
             ## get scene extent for given limit
             if limit is None:
                 sub = None
@@ -415,7 +422,7 @@ def acolite_ac(bundle, odir,
             else:
                 scene_extent = pp.landsat.geo.get_sub(metadata, limit)
                 if type(scene_extent) is int: out_of_scene = True
-                else: 
+                else:
                     sub, p, (xrange,yrange,grid_region), proj4_string = scene_extent
                 if limit is None: sub=None
 
@@ -426,7 +433,7 @@ def acolite_ac(bundle, odir,
                 if azi > 180.: azi-= 180.
                 if azi < 0.: azi+= 180.
                 metadata['AZI']=azi
-            
+
         if data_type == 'Sentinel':
             ## read granule metadata
             gr_metafile = safe_files[granule]['metadata']['path']
@@ -436,7 +443,7 @@ def acolite_ac(bundle, odir,
             if limit is not None:
                 grids = pp.sentinel.geo.get_sub(grmeta, limit)
                 if type(grids) is int: out_of_scene = True
-                else: 
+                else:
                     grids, proj4_string = grids
                     sub = grids['{}'.format(s2_target_res)]['sub']
                     xrange = grids['{}'.format(s2_target_res)]['xrange']
@@ -447,7 +454,7 @@ def acolite_ac(bundle, odir,
                 yrange = grids['{}'.format(s2_target_res)]['yrange']
                 grids = None
                 sub = None
-            
+
             ## make output names
             if scene_name:
                 oname = grmeta['TILE_ID']
@@ -543,7 +550,7 @@ def acolite_ac(bundle, odir,
                 lon, lat = pp.landsat.geo.get_ll(metadata, limit=limit)
             if data_type == 'Sentinel':
                 lon, lat = pp.sentinel.geo.get_ll(grmeta, limit=limit, resolution=s2_target_res)
-            #from numpy import nanpercentile            
+            #from numpy import nanpercentile
             ## interpolate DEM
             dem = pp.dem.hgt_lonlat(lon, lat)
             ## compute DEM pressure
@@ -565,7 +572,7 @@ def acolite_ac(bundle, odir,
                     lon, lat = pp.landsat.geo.get_ll(metadata, limit=limit)
                 if data_type == 'Sentinel':
                     lon, lat = pp.sentinel.geo.get_ll(grmeta, limit=limit, resolution=s2_target_res)
-            
+
             ## use image/region mid-point
             pc_lon=lon[int(lon.shape[0]/2), int(lon.shape[1]/2)]
             pc_lat=lat[int(lat.shape[0]/2), int(lat.shape[1]/2)]
@@ -576,10 +583,10 @@ def acolite_ac(bundle, odir,
             except:
                 pc_anc = {}
                 print('Could not retrieve ancillary data, proceeding with default values.')
-        
+
             ## get pressure from ancillary data if not determined by user or by DEM
             if (pressure == None) & (lut_pressure):
-                if 'press' not in pc_anc: 
+                if 'press' not in pc_anc:
                     print('No ancillary pressure found: using default.')
                     pressure=None
                 else: pressure = pc_anc['press']['interp']
@@ -588,7 +595,7 @@ def acolite_ac(bundle, odir,
         if gas_transmittance:
             uoz=uoz_default
             uwv=uwv_default
-            
+
             ## use ancillary data if provided
             if ancillary_data:
                 if 'ozone' in pc_anc: uoz=pc_anc['ozone']['interp']
@@ -600,6 +607,8 @@ def acolite_ac(bundle, odir,
             tt_wv = pp.ac.wvlut_interp(metadata['THS'], metadata['THV'], uwv=uwv, sensor=sensor, config=wvlut)
             tt_o2 = pp.ac.o2lut_interp(metadata['THS'], metadata['THV'], sensor=sensor)
             tt_gas = {btag: tt_oz[btag] * tt_wv[btag] * tt_o2[btag] for btag in tt_oz.keys()}
+
+        if pressure is None: pressure = 1013.
 
         ## Sky reflectance correction
         if sky_correction:
@@ -712,7 +721,7 @@ def acolite_ac(bundle, odir,
                 global_dims=(nc.dimensions['y'].size, nc.dimensions['x'].size)
                 nc.close()
             else:
-                if sensor_family == 'Landsat': 
+                if sensor_family == 'Landsat':
                     dims = metadata['DIMS']
                 if sensor_family == 'Sentinel':
                     dims = grmeta['GRIDS']['{}'.format(s2_target_res)]['NCOLS'],grmeta['GRIDS']['{}'.format(s2_target_res)]['NROWS']
@@ -748,7 +757,7 @@ def acolite_ac(bundle, odir,
                         ## tie point coordinates
                         txg=linspace(0, tp_dim[1]-1,num=tp_dim[1])
                         tyg=linspace(0, tp_dim[0]-1,num=tp_dim[0])
-                        ## interpolators for tiled processing                    
+                        ## interpolators for tiled processing
                         sunzi = interp2d(txg, tyg, grmeta['SUN']['Zenith'])
                         sunai = interp2d(txg, tyg, grmeta['SUN']['Azimuth'])
                         senzi = interp2d(txg, tyg, grmeta['VIEW']['Average_View_Zenith'])
@@ -765,7 +774,7 @@ def acolite_ac(bundle, odir,
                 print('Starting DSF aerosol correction with tiled path reflectance.')
                 ## read data and save tiled rdark
                 ## can also save L1T netcdf (recommended)
-                
+
                 ## this opens each band once and then does the tiling
                 ## is about 10x faster than processing per tile (at least for the 6x6 km tiles)
 
@@ -815,18 +824,18 @@ def acolite_ac(bundle, odir,
                                 pp.output.nc_write(l1r_ncfile, parname, band_full, dataset_attributes=ds_att,
                                                    new=l1r_nc_new, global_dims=global_dims, nc_compression=l1r_nc_compression)
                             l1r_nc_new=False
-                            
+
                     ## skip here so the cirrus and wv bands are output to L1R
                     if band_name in bands_skip_corr: continue
 
                     if (gains) & (band_name in gains_dict):
                         band_full *= gains_dict[band_name]
-                        print('Applied gain {} for band {}'.format(gains_dict[band_name],band_name)) 
+                        print('Applied gain {} for band {}'.format(gains_dict[band_name],band_name))
 
                     ## mask toa < rray
                     band_full[band_full < rray[band_dict[band_name]['lut_name']]] = nan
 
-                    ## 
+                    ##
                     ## run through tiles
                     tileid = 0
                     for xi in range(tiles[1]):
@@ -841,8 +850,8 @@ def acolite_ac(bundle, odir,
                             print('Subsetting tile {} of {}'.format(tileid, ntiles), end='\r' if tileid < ntiles else '\n')
 
                             y0 = yi*tile_dims[0]
-                            ysub = [y0, min((y0+tile_dims[0], global_dims[0]))-y0]            
-      
+                            ysub = [y0, min((y0+tile_dims[0], global_dims[0]))-y0]
+
                             ## compute tile average geometry
                             if resolved_angles:
                                 if (data_type == 'Sentinel'):
@@ -872,18 +881,26 @@ def acolite_ac(bundle, odir,
                             if cover < mincover: continue
 
                             ## get rdark
-                            rdark_band=pp.ac.select_rdark(band_data, rdark_list_selection=dsf_list_selection, 
+                            rdark_band=pp.ac.select_rdark(band_data, rdark_list_selection=dsf_list_selection,
                                                pixel_range=pixel_range, lowess_frac = lowess_frac, pixel_idx=pixel_idx)
 
                             ## store rdark in tile data
                             ## flipped yi, xi here to have proper tile orientation
                             tile_data[band_name]['rdark'][yi, xi] = rdark_band
+
+                            ## exclude bands from dsf
+                            ## bit of a dirty solution
+                            if (band_dict[band_name]['wave'] < dsf_wave_range[0]): tile_data[band_name]['rdark'][yi, xi] += 1
+                            if (band_dict[band_name]['wave'] > dsf_wave_range[1]): tile_data[band_name]['rdark'][yi, xi] += 1
+                            if (band_dict[band_name]['lut_name'] in dsf_exclude_bands): tile_data[band_name]['rdark'][yi, xi] += 1
+                            ##
+
                 t1 = time.time()
                 print('Reading {} tiles took {} seconds'.format(ntiles, t1-t0))
-                
+
                 ## from now on read the l1r NCDF
                 l1r_read_nc = (l1r_nc_write) and (os.path.exists(l1r_ncfile))
-                
+
                 ## compute tiled AOT map
                 ## flipped yi,xi here, but it does not matter so much here
                 t0 = time.time()
@@ -892,9 +909,9 @@ def acolite_ac(bundle, odir,
                 tags = ['tau550', 'band', 'model']
                 tile_output = {tag: zeros(tiles)+nan for tag in tags}
                 tags = ['ratm', 'rorayl','dtott', 'utott', 'astot']
-                
+
                 ## add extra ac parameters output
-                if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                     for p in lut_data_dict[luts[0]]['meta']['par']:
                         if p not in tags: tags.append(p)
                 tile_output['atm'] = {band:{tag: zeros(tiles)+nan for tag in tags} for band in ordered_bands}
@@ -912,7 +929,7 @@ def acolite_ac(bundle, odir,
                         if tile_data[ordered_bands[0]]['cover'][yi,xi] < dsf_min_tile_cover: continue
 
                         ## make rdark for each tile
-                        rdark = {band_dict[band_name]['lut_name']:tile_data[band_name]['rdark'][yi,xi] 
+                        rdark = {band_dict[band_name]['lut_name']:tile_data[band_name]['rdark'][yi,xi]
                                      for band_name in ordered_bands if band_name not in bands_skip_corr}
 
                         ## make a copy of the metadata
@@ -931,18 +948,18 @@ def acolite_ac(bundle, odir,
                         ### get 'best' AOT for this rdark
                         (ratm_s,rorayl_s,dtotr_s,utotr_s,dtott_s,utott_s,astot_s, tau550),\
                         (bands_sorted, tau550_all_bands, dark_idx, sel_rmsd, rdark_sel, pixel_idx), \
-                        (sel_model_lut, sel_model_lut_meta) = pp.ac.select_model(metadata_tile, rdark, 
+                        (sel_model_lut, sel_model_lut_meta) = pp.ac.select_model(metadata_tile, rdark,
                                                                                          lut_data_dict=lut_data_dict, luts=luts,
-                                                                                         model_selection=dsf_model_selection, 
+                                                                                         model_selection=dsf_model_selection,
                                                                                          force_band=dsf_force_band,
-                                                                                         rdark_list_selection=dsf_list_selection, 
+                                                                                         rdark_list_selection=dsf_list_selection,
                                                                                          pressure=pressure)
                         cur_azi = 1.0*metadata_tile['AZI']
                         cur_thv = 1.0*metadata_tile['THV']
                         cur_ths = 1.0*metadata_tile['THS']
 
                         ## output extra ac parameters
-                        if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                        if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                             extra_ac = {}
                             for ap in lut_data_dict[luts[0]]['meta']['par']:
                                 if ap in ['ratm', 'rorayl','dtott', 'utott', 'astot']: continue
@@ -963,7 +980,7 @@ def acolite_ac(bundle, odir,
                             tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_dict[band_name]['lut_name']]
 
                             ## if output extra ac parameters
-                            if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                            if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                                 for ap in extra_ac:
                                     tile_output['atm'][band_name][ap][yi,xi] = extra_ac[ap][band_dict[band_name]['lut_name']]
 
@@ -991,7 +1008,7 @@ def acolite_ac(bundle, odir,
                                 tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_name]
                                 tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_name]
                                 ## if output extra ac parameters
-                                if (extra_ac_parameters) & (dsf_write_tiled_parameters): 
+                                if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                                     for ap in extra_ac:
                                         tile_output['atm'][band_name][ap][yi,xi] = extra_ac[ap][band_name]
                             else:
@@ -1033,7 +1050,7 @@ def acolite_ac(bundle, odir,
 
                 t1 = time.time()
                 print('Computing AOT for {} tiles took {} seconds'.format(ntiles, t1-t0))
-                
+
                 #################
                 ## set up tile grid for interpolation of path reflectance parameters
                 ## output coordinates
@@ -1043,10 +1060,10 @@ def acolite_ac(bundle, odir,
                     xnew=xnew[sub[0]:sub[0]+sub[2]]
                     ynew=ynew[sub[1]:sub[1]+sub[3]]
                     global_dims = (sub[3],sub[2])
-                    
+
                 ## mask and add buffer to tiles
                 tile_mask = tile_output['tau550']<dsf_min_tile_aot
-                
+
                 if dsf_plot_retrieved_tiles:
                     pp.plotting.plot_tiled_retrieval(tiles, tile_data, tile_output, metadata, rdark, odir)
             ## end tiled retrieval
@@ -1082,7 +1099,7 @@ def acolite_ac(bundle, odir,
                             band_data = pp.landsat.get_rtoa(bundle, metadata, band_name, sub=sub)
                         if data_type == 'Sentinel':
                             band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, target_res=s2_target_res, sub=grids)
-                        
+
                         ## write to L1R file
                         if l1r_nc_write:
                             print('Writing band {} to {}'.format(band_name,l1r_ncfile))
@@ -1105,10 +1122,10 @@ def acolite_ac(bundle, odir,
                     ## apply gains
                     if (gains) & (band_name in gains_dict):
                         band_data *= gains_dict[band_name]
-                        print('Applied gain {} for band {}'.format(gains_dict[band_name],band_name)) 
+                        print('Applied gain {} for band {}'.format(gains_dict[band_name],band_name))
 
                     ## apply gas correction
-                    if gas_transmittance: 
+                    if gas_transmittance:
                         band_data/=tt_gas[band_dict[band_name]['lut_name']]
                         ds_att['tt_gas'] = tt_gas[band_dict[band_name]['lut_name']]
 
@@ -1129,6 +1146,13 @@ def acolite_ac(bundle, odir,
                     data = None
                     rdark[band_dict[band_name]['lut_name']] = rtoa_dict_cur[band_dict[band_name]['lut_name']]
 
+                    ## exclude bands from dsf
+                    ## bit of a dirty solution
+                    if (band_dict[band_name]['wave'] < dsf_wave_range[0]): rdark[band_dict[band_name]['lut_name']] += 1
+                    if (band_dict[band_name]['wave'] > dsf_wave_range[1]): rdark[band_dict[band_name]['lut_name']] += 1
+                    if (band_dict[band_name]['lut_name'] in dsf_exclude_bands): rdark[band_dict[band_name]['lut_name']] += 1
+                    ##
+
                     ## check for empty rdark
                     if (dsf_spectrum_option=='absolute_pixel_list'):
                         if len(rdark[band_dict[band_name]['lut_name']]) == 0: no_coverage = True
@@ -1148,8 +1172,8 @@ def acolite_ac(bundle, odir,
                 (ratm_s,rorayl_s,dtotr_s,utotr_s,dtott_s,utott_s,astot_s, tau550),\
                 (bands_sorted, tau550_all_bands, dark_idx, sel_rmsd, rdark_sel, pixel_idx), \
                 (sel_model_lut, sel_model_lut_meta) = pp.ac.select_model(metadata, rdark, lut_data_dict=lut_data_dict, luts=luts,
-                                                               bestfit=bestfit, bestfit_bands=bestfit_bands, 
-                                                               model_selection=dsf_model_selection, 
+                                                               bestfit=bestfit, bestfit_bands=bestfit_bands,
+                                                               model_selection=dsf_model_selection,
                                                                rdark_list_selection=dsf_list_selection,
                                                                pressure=pressure,force_band=dsf_force_band)
                 ## resolved angles for S2
@@ -1168,8 +1192,8 @@ def acolite_ac(bundle, odir,
                                 while relazi > 180.: relazi=abs(relazi-180.)
                                 ## get lut data
                                 for par in ac_pars:
-                                    v = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta, 
-                                                                   relazi, 
+                                    v = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta,
+                                                                   relazi,
                                                                    grmeta['VIEW']['Average_View_Zenith'][ii,ij],
                                                                    grmeta['SUN']['Zenith'][ii,ij],
                                                                    tau550, par=par)
@@ -1190,7 +1214,7 @@ def acolite_ac(bundle, odir,
                 else:
                     model_char = '4C'
                     model_char = '4C: {}/{}/{}/{}'.format(sel_model_lut_meta['mod1'],sel_model_lut_meta['mod2'],sel_model_lut_meta['mod3'],sel_model_lut_meta['mod4'])
-        
+
                 ## set up attributes
                 if (dsf_full_scene is False) and (limit != None): ds_origin = 'sub scene'
                 else: ds_origin = 'full scene'
@@ -1211,6 +1235,74 @@ def acolite_ac(bundle, odir,
                 attributes['ac_aot550']=tau550
                 attributes['ac_rmsd']=sel_rmsd
                 print('model:{} band:{} aot={:.3f}'.format(attributes['ac_model_char'],attributes['ac_band'],attributes['ac_aot550']))
+
+                ## for plotting rsky keep the Rayleigh
+                try:
+                    rsky_b = rsky
+                except:
+                    rsky_b = None
+
+                ## new sky reflectance correction (Mar. 2020)
+                if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                    ## import luts
+                    lutd = pp.aerlut.import_luts()
+                    cluts = list(lutd.keys())
+                    mods = [int(l[-1]) for l in cluts]
+
+                    ## import rsky luts
+                    rlutd = {}
+                    for aermod in mods:
+                        l, m, d, r = pp.aerlut.rsky_read_lut(aermod)
+                        rlutd[aermod] = {'lut':l, 'meta':m, 'dim':d, 'rgi':r}
+
+                    raa = attributes['AZI']
+                    vza = attributes['THV']
+                    sza = attributes['THS']
+                    res = pp.ac.rhod_fit_model(raa, vza, sza, pressure = pressure, rhod = rdark_sel, sensor=sensor, lutd=lutd)
+                    sel_mod = res['mod_sel']
+                    tau550 = res[sel_mod]['tau_fit']
+                    rsky_new = {b: res[sel_mod]['rhot_fit_rs'][b]-res[sel_mod]['romix_fit_rs'][b] for b in res[sel_mod]['rhot_fit_rs']}
+                    print('Fit with new rsky - model:{} band:{} aot={:.3f}'.format(sel_mod,res[sel_mod]['tau_band'],res[sel_mod]['tau_fit']))
+                    attributes['ac_aot550'] = tau550
+                    attributes['ac_rmsd']= res['mod_rmsd']
+                    attributes['ac_model']=sel_mod
+                    if attributes['ac_model'][-1] == "1": attributes['ac_model_char'] = 'C'
+                    if attributes['ac_model'][-1] == "2": attributes['ac_model_char'] = 'M'
+                    if attributes['ac_model'][-1] == "3": attributes['ac_model_char'] = 'U'
+                    dark_idx = res[sel_mod]['rmsd_bands']
+
+                    ## sel aermod
+                    if 'MOD1' in sel_mod: sel_aermod = 1
+                    if 'MOD2' in sel_mod: sel_aermod = 2
+                    sel_model_lut_meta['aermod'] = [sel_aermod]
+
+                    ## lut things
+                    ipd = {par:ip for ip,par in enumerate(lutd[sel_mod]['meta']['par'])}
+                    waves = lutd[sel_mod]['meta']['wave']
+
+                    ### get resampled parameters
+                    ret_s = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
+                    ratm_s = pp.shared.rsr_convolute_dict(waves, ret_s, rsr)
+                    rorayl_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['rorayl'], waves, raa, vza, sza, tau550)), rsr)
+                    dtotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtotr'], waves, raa, vza, sza, tau550)), rsr)
+                    utotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['utotr'], waves, raa, vza, sza, tau550)), rsr)
+                    dtott_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtott'], waves, raa, vza, sza, tau550)), rsr)
+                    utott_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['utott'], waves, raa, vza, sza, tau550)), rsr)
+                    astot_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['astot'], waves, raa, vza, sza, tau550)), rsr)
+
+                    ## test rsky retrieval
+                    ret_romix = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
+                    ret_utott = lutd[sel_mod]['rgi']((pressure, ipd['utott'], waves, raa, vza, sza, tau550))
+                    ret_dtott = lutd[sel_mod]['rgi']((pressure, ipd['dtott'], waves, raa, vza, sza, tau550))
+                    ret_astot = lutd[sel_mod]['rgi']((pressure, ipd['astot'], waves, raa, vza, sza, tau550))
+                    ret_rsky = rlutd[sel_aermod]['rgi']((waves, raa, vza, sza, tau550))
+                    cur_rsky = (ret_utott * ret_dtott * ret_rsky)/(1. - ret_rsky * ret_astot)
+                    rsky_b = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr)
+                    rsky_s = pp.shared.rsr_convolute_dict(waves, cur_rsky, rsr)
+
+                    for band in rsky_s.keys():
+                        attributes['{}_r_sky'.format(band)] = rsky_s[band]
+                        attributes['{}_r_sky_boa'.format(band)] = rsky_b[band]
 
                 #Output additional parameters from the ac
                 if extra_ac_parameters:
@@ -1239,12 +1331,12 @@ def acolite_ac(bundle, odir,
                              if atag not in attributes: attributes[atag] = extra_ac[ap][band]
 
                 if dsf_plot_dark_spectrum:
-                    pp.plotting.plot_dark_spectrum(metadata, ds_plot, bands, ordered_bands, data_type, ordered_waves, ratm_s, rorayl_s, rdark, rdark_sel, dsf_spectrum_option, dark_idx, tau550,sel_model_lut_meta)
+                    pp.plotting.plot_dark_spectrum(metadata, ds_plot, bands, ordered_bands, data_type, ordered_waves, ratm_s, rorayl_s, rdark, rdark_sel, dsf_spectrum_option, dark_idx, tau550,sel_model_lut_meta, rsky_b)
 
                 ## from now on read the l1r NCDF
                 l1r_read_nc = (l1r_nc_write) and (os.path.exists(l1r_ncfile))
         ## end dark spectrum fitting a/c
-        ###########################   
+        ###########################
 
         ##########################
         ## old ACOLITE exponential a/c
@@ -1262,7 +1354,7 @@ def acolite_ac(bundle, odir,
 
             ## get Rayleigh reflectance from only 1 LUT
             (_,rorayl,dtotr,utotr,_,_,_,_),(bands_sorted,_,_,_,_,_), (_) = pp.ac.select_model(metadata, bdict, luts=[luts[1]], pressure=pressure)
-            
+
             if metadata['SENSOR'] == 'MSI':
                 #band_indices = [int(b) for i,b in enumerate(band_names)]
                 band_indices = [int(i) for i,b in enumerate(ordered_bands)]
@@ -1283,7 +1375,7 @@ def acolite_ac(bundle, odir,
             short_tag = '{}'.format(ordered_bands[short_idx].lstrip('B'))
             long_tag = '{}'.format(ordered_bands[long_idx].lstrip('B'))
 
-            print('Selected bands {}/{} ({}/{} nm)'.format(short_tag, long_tag, short_wave,long_wave))            
+            print('Selected bands {}/{} ({}/{} nm)'.format(short_tag, long_tag, short_wave,long_wave))
 
             if data_type == 'NetCDF':
                 short_data = pp.shared.nc_data(bundle, 'rhot_{}'.format(short_wave))
@@ -1314,7 +1406,7 @@ def acolite_ac(bundle, odir,
 
             short_data -= rorayl[short_tag]
             long_data -= rorayl[long_tag]
-            
+
             ## choose processing option
             if (short_wv < 900) & (long_wv < 900):
                 exp_option = 'red/NIR'
@@ -1367,7 +1459,7 @@ def acolite_ac(bundle, odir,
                 exp_c1 = (exp_alpha/tt_long)/(exp_alpha*exp_gamma-exp_initial_epsilon)
                 exp_c2 = exp_initial_epsilon * exp_c1
                 rhow_short = (exp_c1 * short_data) - (exp_c2 * long_data)
-                
+
                 ## additional masking for epsilon
                 mask2 = (rhow_short < 0.) &\
                         (rhow_short > exp_cwlim)
@@ -1388,7 +1480,7 @@ def acolite_ac(bundle, odir,
             ## get fixed epsilon if requested
             if exp_fixed_aerosol_reflectance: exp_fixed_epsilon = True
             if exp_fixed_epsilon:
-                if exp_epsilon is not None: 
+                if exp_epsilon is not None:
                     epsilon = float(exp_epsilon) * 1.0
                     print('User provided epsilon ({}/{} nm): {:.2f}'.format(short_wave,long_wave, epsilon))
                 else:
@@ -1404,7 +1496,7 @@ def acolite_ac(bundle, odir,
 
             short_data = None
             long_data = None
-            
+
             if exp_fixed_aerosol_reflectance:
                 rhoam = nanpercentile(rhoam,exp_fixed_aerosol_reflectance_percentile)
                 #if not exp_fixed_epsilon: exp_fixed_epsilon=True
@@ -1428,7 +1520,7 @@ def acolite_ac(bundle, odir,
                 ## set up band parameter
                 btag = band_dict[band_name]['lut_name']
                 wave = band_dict[band_name]['wave']
-                
+
                 parname_t = 'rhot_{:.0f}'.format(wave)
                 parname_s = 'rhos_{:.0f}'.format(wave)
                 parname_w = 'rhos_{:.0f}'.format(wave)
@@ -1454,16 +1546,16 @@ def acolite_ac(bundle, odir,
                 ## apply gains
                 if (gains) & (band_name in gains_dict):
                     band_data *= gains_dict[band_name]
-                    print('Applied gain {} for band {}'.format(gains_dict[band_name],band_name)) 
+                    print('Applied gain {} for band {}'.format(gains_dict[band_name],band_name))
 
                 ## write toa reflectance
                 if nc_write_rhot:
                     ds_att['standard_name']='toa_bidirectional_reflectance'
                     ds_att['units']=1
-                    pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new, 
+                    pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new,
                                        attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                     l2r_nc_new=False
-                    
+
                 ## skip some bands
                 if (band_name in bands_skip_corr): continue
 
@@ -1481,7 +1573,7 @@ def acolite_ac(bundle, odir,
                     l2r_nc_new=False
 
                 ## apply gas correction
-                if gas_transmittance: 
+                if gas_transmittance:
                     band_data/=tt_gas[band_dict[band_name]['lut_name']]
                     ds_att['tt_gas'] = tt_gas[band_dict[band_name]['lut_name']]
 
@@ -1490,6 +1582,9 @@ def acolite_ac(bundle, odir,
                     if sky_correction_option == 'all':
                         band_data -= rsky[band_dict[band_name]['lut_name']]
                         ds_att['rsky'] = rsky[band_dict[band_name]['lut_name']]
+                    if sky_correction_option == 'rsky_new':
+                        band_data -= rsky_s[band_dict[band_name]['lut_name']]
+                        ds_att['rsky'] = rsky_s[band_dict[band_name]['lut_name']]
 
                 ## write surface reflectance
                 if (nc_write_rhos | (nc_write_rhow)):
@@ -1508,7 +1603,7 @@ def acolite_ac(bundle, odir,
                             ## here interpolated for the subtile centres
                             if (b == 0) & (resolved_angles_write):
                                     tmp =  pp.ac.tiles_interp(tile_angles['VAA'], xnew, ynew)
-                                    pp.output.nc_write(l2r_ncfile, 'view_azimuth', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)                  
+                                    pp.output.nc_write(l2r_ncfile, 'view_azimuth', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                     l2r_nc_new=False
                                     tmp =  pp.ac.tiles_interp(tile_angles['SAA'], xnew, ynew)
                                     pp.output.nc_write(l2r_ncfile, 'sun_azimuth', tmp, new=l2r_nc_new)
@@ -1554,7 +1649,7 @@ def acolite_ac(bundle, odir,
                                 ds_att['dtott'] = dtott_s[btag]
                                 ds_att['utott'] = utott_s[btag]
                                 ds_att['astot'] = astot_s[btag]
-                        
+
                         if (dsf_write_tiled_parameters):
                             if (dsf_path_reflectance == 'tiled') | ((dsf_path_reflectance == 'fixed') & resolved_angles):
                                 pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(wave), ratm_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
@@ -1562,7 +1657,7 @@ def acolite_ac(bundle, odir,
                                 pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(wave), astot_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
 
                                 ## output extra ac parameters
-                                if extra_ac_parameters: 
+                                if extra_ac_parameters:
                                     for ap in tile_output['atm'][band_name]:
                                         if ap in ['ratm', 'astot', 'dutott']: continue
                                         if (dsf_path_reflectance == 'tiled'):
@@ -1571,14 +1666,14 @@ def acolite_ac(bundle, odir,
                                             ap_cur =  pp.ac.tiles_interp(ac_data[btag][ap], tp_xnew, tp_ynew)
                                         pp.output.nc_write(l2r_ncfile, '{}_{}'.format(ap, wave), ap_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                 l2r_nc_new = False
-                                
+
                         ## compute surface reflectance
                         ttg_cur = 1.0 ## gas correction should have been performed already
                         rhos_data = (band_data/ttg_cur) - ratm_cur
                         rhos_data = (rhos_data) / (dutott_cur + astot_cur * rhos_data)
                     ## end DSF
                     ########################
-                    
+
                     ########################
                     ## exponential
                     if (aerosol_correction == 'exponential'):
@@ -1588,13 +1683,13 @@ def acolite_ac(bundle, odir,
                         rhos_data[mask] = nan
                     ## end exponential
                     ########################
-                    
+
                     ## write surface reflectance
                     if (nc_write_rhos):
                             ds_att['standard_name']='surface_bidirectional_reflectance'
                             ds_att['units']=1
                             rhos_data[valid_mask == 0] = nan
-                            pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, 
+                            pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new,
                                            attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                             l2r_nc_new = False
 
@@ -1605,36 +1700,36 @@ def acolite_ac(bundle, odir,
                             ds_att['units']=1
                             rhos_data[valid_mask == 0] = nan
                             rhos_data[mask] = nan
-                            pp.output.nc_write(l2r_ncfile, parname_w, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, 
+                            pp.output.nc_write(l2r_ncfile, parname_w, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new,
                                                attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                             l2r_nc_new=False
-                            
+
                 ## track rhos negatives
                 if l2_negatives is None:
                     l2_negatives = (rhos_data*0).astype(int32)
                 if wave < neg_wave:
                     l2_negatives[rhos_data < 0] = 2**1
 
-                rhos_data = None                 
+                rhos_data = None
                 band_data = None
                 ## end band loop
                 ###########################
             ## end writing L2R
             ##############################
-            
+
             ## write rhos negatives
-            pp.output.nc_write(l2r_ncfile, 'l2_negatives', l2_negatives, new=l2r_nc_new, attributes=attributes, 
+            pp.output.nc_write(l2r_ncfile, 'l2_negatives', l2_negatives, new=l2r_nc_new, attributes=attributes,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
 
-            ##############################   
+            ##############################
             ## write EXP variable rhoam and epsilon
             if (aerosol_correction == 'exponential') & (exp_fixed_epsilon is False):
                 rhoam[mask] = nan
-                pp.output.nc_write(l2r_ncfile, 'rhoam', rhoam, new=l2r_nc_new, attributes=attributes, 
+                pp.output.nc_write(l2r_ncfile, 'rhoam', rhoam, new=l2r_nc_new, attributes=attributes,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
                 l2r_nc_new = False
                 epsilon[mask] = nan
-                pp.output.nc_write(l2r_ncfile, 'epsilon', epsilon, new=l2r_nc_new, attributes=attributes, 
+                pp.output.nc_write(l2r_ncfile, 'epsilon', epsilon, new=l2r_nc_new, attributes=attributes,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
             ## end write EXP variable
             ##############################
@@ -1761,7 +1856,7 @@ def acolite_ac(bundle, odir,
                     if data is not None:
                         if l8_output_pan:
                             pp.output.nc_write(l1r_ncfile_pan, parname, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
-                
+
                         if l8_output_pan_ms:
                             parname = 'rhot_pan_ms'
                             data = zoom(data, zoom=0.5, order=1)
@@ -1777,7 +1872,7 @@ def acolite_ac(bundle, odir,
                     print('Calculating orange band.')
                     pan_ms = pp.shared.nc_data(l1r_ncfile_pan_ms, 'rhot_pan_ms')
                     pan_wave = swaves['8']
-                    
+
                     ## get nans from toa product
                     valid_mask = isfinite(pan_ms)
 
@@ -1799,7 +1894,7 @@ def acolite_ac(bundle, odir,
                     if ob_cfg['combine'] == 'after':
                         ob_ds = 'rhos_{}'
                         ptag = '8'
-                        ds_att_pan = {'wavelength': float(pan_wave), 'band_name':"8", 
+                        ds_att_pan = {'wavelength': float(pan_wave), 'band_name':"8",
                                       'tt_gas':tt_gas[ptag], 'rsky':rsky[ptag]}
                         # pan band gas transmittance
                         if gas_transmittance:
@@ -1808,6 +1903,10 @@ def acolite_ac(bundle, odir,
                         if sky_correction:
                             if sky_correction_option == 'all':
                                 pan_ms-=rsky[ptag]
+                            if sky_correction_option == 'rsky_new':
+                                pan_ms -= rsky_s[ptag]
+                                ds_att_pan['rsky'] =rsky_s[ptag]
+
                         # fixed or tiled DSF to get pan band rhos
                         if dsf_path_reflectance == 'fixed':
                             ## pan band
@@ -1914,6 +2013,10 @@ def acolite_ac(bundle, odir,
                             rsky_O = pp.ac.toa_rsky(metadata_O, pressure=pressure)
                             if sky_correction_option == 'all':
                                 band_data -= rsky_O[btag]
+                            if sky_correction_option == 'rsky_new':
+                                rsky_ret_O = pp.shared.rsr_convolute_dict(waves, cur_rsky, ob_rsr)
+                                band_data -= rsky_ret_O[btag]
+                                ds_att['rsky'] =rsky_ret_O[btag]
 
                         ## compute surface reflectance
                         if dsf_path_reflectance == 'fixed':
@@ -1927,7 +2030,7 @@ def acolite_ac(bundle, odir,
                                 pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(ob_wave), astot_cur, dataset_attributes=ds_att, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
 
                                 ## if output extra ac parameters
-                                if extra_ac_parameters: 
+                                if extra_ac_parameters:
                                     for ap in tile_output['atm'][btag]:
                                         if ap in ['ratm', 'astot', 'dutott']: continue
                                         ap_cur =  pp.ac.tiles_interp(tile_output['atm'][btag][ap], xnew, ynew)
@@ -2004,13 +2107,13 @@ def acolite_ac(bundle, odir,
                         mtag = 'PONDER-LUT-201704-MOD2-1013mb'
                     if attributes['ac_model_char'] == 'U':
                         mtag = 'PONDER-LUT-201704-MOD3-1013mb'
-                    ttot = pp.aerlut.interplut_sensor(lut_data_dict[mtag]['lut'], lut_data_dict[mtag]['meta'], 
-                                                  attributes['AZI'], attributes['THV'], attributes['THS'], 
+                    ttot = pp.aerlut.interplut_sensor(lut_data_dict[mtag]['lut'], lut_data_dict[mtag]['meta'],
+                                                  attributes['AZI'], attributes['THV'], attributes['THS'],
                                                   attributes['ac_aot550'], par='ttot')
-                
+
             ## empty dict for glint correction
-            gc_data = {'Tu':{}, 'Td':{}, 'T':{}, 
-                       'Rf_USER': {}, 'gc_USER': {}, 
+            gc_data = {'Tu':{}, 'Td':{}, 'T':{},
+                       'Rf_USER': {}, 'gc_USER': {},
                        'Rf_SWIR1': {}, 'Rf_SWIR2': {},
                        'gc_SWIR1': {}, 'gc_SWIR2': {}}
 
@@ -2023,7 +2126,7 @@ def acolite_ac(bundle, odir,
                 ## compute Fresnel here?
                 ## currently for scene center geometry
 
-                ## direct up and down transmittance                
+                ## direct up and down transmittance
                 if dsf_path_reflectance == 'fixed':
                     if resolved_angles:
                         ttot_cur = pp.ac.tiles_interp(ac_data[btag]['ttot'], tp_xnew, tp_ynew)
@@ -2032,7 +2135,7 @@ def acolite_ac(bundle, odir,
                 else: ## tiled ttot
                     ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew)
                 ## two way direct transmittance
-                gc_data['T'][btag]  = exp(-1.*(ttot_cur/muv)) * exp(-1.*(ttot_cur/mus))  
+                gc_data['T'][btag]  = exp(-1.*(ttot_cur/muv)) * exp(-1.*(ttot_cur/mus))
                 ttot_cur = None
 
                 ## fresnel reflectance ratio for SWIR1 and SWIR2
@@ -2050,7 +2153,7 @@ def acolite_ac(bundle, odir,
 
                 ## delete transmittance data
                 if btag not in gc_t_keep: del gc_data['T'][btag]
-                 
+
             ## normalise to reference band
             for b,band_name in enumerate(ordered_bands):
                 if band_name in bands_skip_thermal: continue
