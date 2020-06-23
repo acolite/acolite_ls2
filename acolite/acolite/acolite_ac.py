@@ -1176,6 +1176,90 @@ def acolite_ac(bundle, odir,
                                                                model_selection=dsf_model_selection,
                                                                rdark_list_selection=dsf_list_selection,
                                                                pressure=pressure,force_band=dsf_force_band)
+                if 'aermod' in sel_model_lut_meta.keys():
+                    if sel_model_lut_meta['aermod'][0] == "1": model_char = 'C'
+                    if sel_model_lut_meta['aermod'][0] == "2": model_char = 'M'
+                    if sel_model_lut_meta['aermod'][0] == "3": model_char = 'U'
+                else:
+                    model_char = '4C'
+                    model_char = '4C: {}/{}/{}/{}'.format(sel_model_lut_meta['mod1'],sel_model_lut_meta['mod2'],sel_model_lut_meta['mod3'],sel_model_lut_meta['mod4'])
+
+                ## for plotting rsky keep the Rayleigh
+                try:
+                    rsky_b = rsky
+                except:
+                    rsky_b = None
+
+                ## new sky reflectance correction (Mar. 2020)
+                if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                    ## import luts
+                    lutd = pp.aerlut.import_luts()
+                    cluts = list(lutd.keys())
+                    mods = [int(l[-1]) for l in cluts]
+
+                    ## import rsky luts
+                    rlutd = {}
+                    for aermod in mods:
+                        l, m, d, r = pp.aerlut.rsky_read_lut(aermod)
+                        rlutd[aermod] = {'lut':l, 'meta':m, 'dim':d, 'rgi':r}
+
+                    raa = attributes['AZI']
+                    vza = attributes['THV']
+                    sza = attributes['THS']
+                    res = pp.ac.rhod_fit_model(raa, vza, sza, pressure = pressure, rhod = rdark_sel, sensor=sensor, lutd=lutd)
+                    sel_mod = res['mod_sel']
+                    model_name = res['mod_sel']
+                    tau550 = res[sel_mod]['tau_fit']
+                    rsky_new = {b: res[sel_mod]['rhot_fit_rs'][b]-res[sel_mod]['romix_fit_rs'][b] for b in res[sel_mod]['rhot_fit_rs']}
+                    print('Fit with new rsky - model:{} band:{} aot={:.3f}'.format(sel_mod,res[sel_mod]['tau_band'],res[sel_mod]['tau_fit']))
+                    attributes['ac_aot550'] = tau550
+                    attributes['ac_rmsd']= res['mod_rmsd']
+                    attributes['ac_model']=sel_mod
+                    if attributes['ac_model'][-1] == "1": attributes['ac_model_char'] = 'C'
+                    if attributes['ac_model'][-1] == "2": attributes['ac_model_char'] = 'M'
+                    if attributes['ac_model'][-1] == "3": attributes['ac_model_char'] = 'U'
+                    dark_idx = res[sel_mod]['rmsd_bands']
+
+                    ## sel aermod
+                    if 'MOD1' in sel_mod:
+                        sel_aermod = 1
+                        model_char = 'C'
+                    if 'MOD2' in sel_mod:
+                        sel_aermod = 2
+                        model_char = 'M'
+                    sel_model_lut_meta['aermod'] = [sel_aermod]
+
+                    ## lut things
+                    ipd = {par:ip for ip,par in enumerate(lutd[sel_mod]['meta']['par'])}
+                    waves = lutd[sel_mod]['meta']['wave']
+
+                    ### get resampled parameters
+                    ret_s = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
+                    ratm_s = pp.shared.rsr_convolute_dict(waves, ret_s, rsr)
+                    rorayl_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['rorayl'], waves, raa, vza, sza, tau550)), rsr)
+                    dtotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtotr'], waves, raa, vza, sza, tau550)), rsr)
+                    utotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['utotr'], waves, raa, vza, sza, tau550)), rsr)
+                    dtott_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtott'], waves, raa, vza, sza, tau550)), rsr)
+                    utott_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['utott'], waves, raa, vza, sza, tau550)), rsr)
+                    astot_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['astot'], waves, raa, vza, sza, tau550)), rsr)
+
+                    ## test rsky retrieval
+                    ret_rsky = rlutd[sel_aermod]['rgi']((waves, raa, vza, sza, tau550))
+                    #ret_romix = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
+                    #ret_utott = lutd[sel_mod]['rgi']((pressure, ipd['utott'], waves, raa, vza, sza, tau550))
+                    #ret_dtott = lutd[sel_mod]['rgi']((pressure, ipd['dtott'], waves, raa, vza, sza, tau550))
+                    #ret_astot = lutd[sel_mod]['rgi']((pressure, ipd['astot'], waves, raa, vza, sza, tau550))
+                    #cur_rsky = (ret_utott * ret_dtott * ret_rsky)/(1. - ret_rsky * ret_astot)
+                    #rsky_s = pp.shared.rsr_convolute_dict(waves, cur_rsky, rsr)
+
+                    rsky_b = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr)
+                    rsky_s = {b: (utott_s[b] * dtott_s[b] * rsky_b[b])/(1. - rsky_b[b] * astot_s[b]) for b in rsky_b}
+                    print(rsky_s)
+
+                    for band in rsky_s.keys():
+                        attributes['{}_r_sky'.format(band)] = rsky_s[band]
+                        attributes['{}_r_sky_boa'.format(band)] = rsky_b[band]
+
                 ## resolved angles for S2
                 if resolved_angles:
                     if (data_type == 'Sentinel'):
@@ -1207,13 +1291,6 @@ def acolite_ac(bundle, odir,
 
                 if ret_rdark:
                     return(metadata, rdark_sel, band_dict)
-                if 'aermod' in sel_model_lut_meta.keys():
-                    if sel_model_lut_meta['aermod'][0] == "1": model_char = 'C'
-                    if sel_model_lut_meta['aermod'][0] == "2": model_char = 'M'
-                    if sel_model_lut_meta['aermod'][0] == "3": model_char = 'U'
-                else:
-                    model_char = '4C'
-                    model_char = '4C: {}/{}/{}/{}'.format(sel_model_lut_meta['mod1'],sel_model_lut_meta['mod2'],sel_model_lut_meta['mod3'],sel_model_lut_meta['mod4'])
 
                 ## set up attributes
                 if (dsf_full_scene is False) and (limit != None): ds_origin = 'sub scene'
@@ -1225,8 +1302,9 @@ def acolite_ac(bundle, odir,
                 attributes['dsf_bestfit']=bestfit
                 attributes['dsf_model_selection']=dsf_model_selection
 
-                attributes['ac_model']=sel_model_lut_meta['base']#[0]
+                attributes['ac_model']=model_name
                 attributes['ac_model_char']=model_char
+
                 if type(dark_idx) == str:
                     attributes['ac_band']=dark_idx
                 else:
@@ -1235,74 +1313,6 @@ def acolite_ac(bundle, odir,
                 attributes['ac_aot550']=tau550
                 attributes['ac_rmsd']=sel_rmsd
                 print('model:{} band:{} aot={:.3f}'.format(attributes['ac_model_char'],attributes['ac_band'],attributes['ac_aot550']))
-
-                ## for plotting rsky keep the Rayleigh
-                try:
-                    rsky_b = rsky
-                except:
-                    rsky_b = None
-
-                ## new sky reflectance correction (Mar. 2020)
-                if (sky_correction) & (sky_correction_option == 'rsky_new'):
-                    ## import luts
-                    lutd = pp.aerlut.import_luts()
-                    cluts = list(lutd.keys())
-                    mods = [int(l[-1]) for l in cluts]
-
-                    ## import rsky luts
-                    rlutd = {}
-                    for aermod in mods:
-                        l, m, d, r = pp.aerlut.rsky_read_lut(aermod)
-                        rlutd[aermod] = {'lut':l, 'meta':m, 'dim':d, 'rgi':r}
-
-                    raa = attributes['AZI']
-                    vza = attributes['THV']
-                    sza = attributes['THS']
-                    res = pp.ac.rhod_fit_model(raa, vza, sza, pressure = pressure, rhod = rdark_sel, sensor=sensor, lutd=lutd)
-                    sel_mod = res['mod_sel']
-                    tau550 = res[sel_mod]['tau_fit']
-                    rsky_new = {b: res[sel_mod]['rhot_fit_rs'][b]-res[sel_mod]['romix_fit_rs'][b] for b in res[sel_mod]['rhot_fit_rs']}
-                    print('Fit with new rsky - model:{} band:{} aot={:.3f}'.format(sel_mod,res[sel_mod]['tau_band'],res[sel_mod]['tau_fit']))
-                    attributes['ac_aot550'] = tau550
-                    attributes['ac_rmsd']= res['mod_rmsd']
-                    attributes['ac_model']=sel_mod
-                    if attributes['ac_model'][-1] == "1": attributes['ac_model_char'] = 'C'
-                    if attributes['ac_model'][-1] == "2": attributes['ac_model_char'] = 'M'
-                    if attributes['ac_model'][-1] == "3": attributes['ac_model_char'] = 'U'
-                    dark_idx = res[sel_mod]['rmsd_bands']
-
-                    ## sel aermod
-                    if 'MOD1' in sel_mod: sel_aermod = 1
-                    if 'MOD2' in sel_mod: sel_aermod = 2
-                    sel_model_lut_meta['aermod'] = [sel_aermod]
-
-                    ## lut things
-                    ipd = {par:ip for ip,par in enumerate(lutd[sel_mod]['meta']['par'])}
-                    waves = lutd[sel_mod]['meta']['wave']
-
-                    ### get resampled parameters
-                    ret_s = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
-                    ratm_s = pp.shared.rsr_convolute_dict(waves, ret_s, rsr)
-                    rorayl_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['rorayl'], waves, raa, vza, sza, tau550)), rsr)
-                    dtotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtotr'], waves, raa, vza, sza, tau550)), rsr)
-                    utotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['utotr'], waves, raa, vza, sza, tau550)), rsr)
-                    dtott_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtott'], waves, raa, vza, sza, tau550)), rsr)
-                    utott_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['utott'], waves, raa, vza, sza, tau550)), rsr)
-                    astot_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['astot'], waves, raa, vza, sza, tau550)), rsr)
-
-                    ## test rsky retrieval
-                    ret_romix = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
-                    ret_utott = lutd[sel_mod]['rgi']((pressure, ipd['utott'], waves, raa, vza, sza, tau550))
-                    ret_dtott = lutd[sel_mod]['rgi']((pressure, ipd['dtott'], waves, raa, vza, sza, tau550))
-                    ret_astot = lutd[sel_mod]['rgi']((pressure, ipd['astot'], waves, raa, vza, sza, tau550))
-                    ret_rsky = rlutd[sel_aermod]['rgi']((waves, raa, vza, sza, tau550))
-                    cur_rsky = (ret_utott * ret_dtott * ret_rsky)/(1. - ret_rsky * ret_astot)
-                    rsky_b = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr)
-                    rsky_s = pp.shared.rsr_convolute_dict(waves, cur_rsky, rsr)
-
-                    for band in rsky_s.keys():
-                        attributes['{}_r_sky'.format(band)] = rsky_s[band]
-                        attributes['{}_r_sky_boa'.format(band)] = rsky_b[band]
 
                 #Output additional parameters from the ac
                 if extra_ac_parameters:
