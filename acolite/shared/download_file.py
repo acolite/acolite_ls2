@@ -9,12 +9,12 @@ def download_file(url, file, auth=None, session=None, parallel=False, verbosity=
 
     import requests
     import time
- 
+
     import os
     file_path = os.path.abspath(file)
     start = time.time()
-    
-    if 'https://oceandata.sci.gsfc.nasa.gov/cgi/getfile/' in url:
+
+    if 'https://oceandata.sci.gsfc.nasa.gov/' in url:
         username = os.environ['EARTHDATA_u']
         password = os.environ['EARTHDATA_p']
         auth = (username, password)
@@ -25,7 +25,7 @@ def download_file(url, file, auth=None, session=None, parallel=False, verbosity=
 
             if (r.ok):
                 with open(file_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=1024*1024): 
+                    for chunk in r.iter_content(chunk_size=1024*1024):
                         if chunk: # filter out keep-alive new chunks
                             f.write(chunk)
             else:
