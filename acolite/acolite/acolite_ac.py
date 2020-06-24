@@ -1177,9 +1177,15 @@ def acolite_ac(bundle, odir,
                                                                rdark_list_selection=dsf_list_selection,
                                                                pressure=pressure,force_band=dsf_force_band)
                 if 'aermod' in sel_model_lut_meta.keys():
-                    if sel_model_lut_meta['aermod'][0] == "1": model_char = 'C'
-                    if sel_model_lut_meta['aermod'][0] == "2": model_char = 'M'
-                    if sel_model_lut_meta['aermod'][0] == "3": model_char = 'U'
+                    if sel_model_lut_meta['aermod'][0] == "1":
+                        model_char = 'C'
+                        model_name = 'PONDER-LUT-201704-MOD1'
+                    if sel_model_lut_meta['aermod'][0] == "2":
+                        model_char = 'M'
+                        model_name = 'PONDER-LUT-201704-MOD2'
+                    if sel_model_lut_meta['aermod'][0] == "3":
+                        model_char = 'U'
+                        model_name = 'PONDER-LUT-201704-MOD3'
                 else:
                     model_char = '4C'
                     model_char = '4C: {}/{}/{}/{}'.format(sel_model_lut_meta['mod1'],sel_model_lut_meta['mod2'],sel_model_lut_meta['mod3'],sel_model_lut_meta['mod4'])
