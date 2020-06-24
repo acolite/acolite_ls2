@@ -1272,6 +1272,12 @@ def acolite_ac(bundle, odir,
                         ## set up empty data dict
                         ac_data = {band_dict[b]['lut_name']:
                                    {par:zeros(tp_dim)+nan for par in ac_pars} for b in ordered_bands}
+
+                        ## New Sky Correction for resolved S2 geometry
+                        if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                            for b in ordered_bands:
+                                ac_data[band_dict[b]['lut_name']]['rsky'] = zeros(tp_dim)+nan
+
                         ## run through Sentinel-2 angle grids
                         ## here the a/c parameters are computed at the S2 grid for the retrieved tau
                         ## tau is computed above from rdark for scene average geometry - which is hopefully acceptable
@@ -1288,6 +1294,16 @@ def acolite_ac(bundle, odir,
                                                                    grmeta['SUN']['Zenith'][ii,ij],
                                                                    tau550, par=par)
                                     for b in ac_data: ac_data[b][par][ii,ij]=v[b]
+
+                                ## new rsky
+                                if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                                    ret_rsky = rlutd[sel_aermod]['rgi']((waves, relazi,
+                                                                         grmeta['VIEW']['Average_View_Zenith'][ii,ij],
+                                                                         grmeta['SUN']['Zenith'][ii,ij], tau550))
+                                    rsky_b = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr)
+                                    for b in ac_data:
+                                        ac_data[b]['rsky'][ii,ij] = (ac_data[b]['utott'][ii,ij] * ac_data[b]['dtott'][ii,ij] * rsky_b[b])/(1. - rsky_b[b] * ac_data[b]['astot'][ii,ij])
+
                         ## final interpolation grid for given ROI
                         if limit is not None:
                             tp_xnew=tp_xnew[sub[0]:sub[0]+sub[2]]
@@ -1598,9 +1614,14 @@ def acolite_ac(bundle, odir,
                     if sky_correction_option == 'all':
                         band_data -= rsky[band_dict[band_name]['lut_name']]
                         ds_att['rsky'] = rsky[band_dict[band_name]['lut_name']]
-                    if sky_correction_option == 'rsky_new':
-                        band_data -= rsky_s[band_dict[band_name]['lut_name']]
-                        ds_att['rsky'] = rsky_s[band_dict[band_name]['lut_name']]
+                    if (sky_correction_option == 'rsky_new') & (aerosol_correction == 'dark_spectrum'):
+                        if resolved_angles:
+                            rsky_s_cur = pp.ac.tiles_interp(ac_data[btag]['rsky'], tp_xnew, tp_ynew)
+                            band_data -= rsky_s_cur
+                        else:
+                            band_data -= rsky_s[band_dict[band_name]['lut_name']]
+                            ds_att['rsky'] = rsky_s[band_dict[band_name]['lut_name']]
+
 
                 ## write surface reflectance
                 if (nc_write_rhos | (nc_write_rhow)):
