@@ -1,7 +1,9 @@
 ## fit model with sky reflectance to rho dark
 ## QV 2020-03-18
+##                2020-06-22 (QV) added rsr keyword and removed band wavelength computation
 
-def rhod_fit_model(raa, vza, sza, pressure = 1013, rhod = None, sensor=None, resample=True,
+def rhod_fit_model(raa, vza, sza, pressure = 1013, rhod = None,
+                   sensor=None, resample=True, rsr=None,
                    lutd = None, luts=['PONDER-LUT-201704-MOD1', 'PONDER-LUT-201704-MOD2'],
                    rlutd = None):
     import numpy as np
@@ -19,7 +21,6 @@ def rhod_fit_model(raa, vza, sza, pressure = 1013, rhod = None, sensor=None, res
         cur_romix[np.isnan(cur_romix)] = 0
 
         ## model toa reflectance for this tau
-        #cur_rhot = cur_romix + (cur_utott * cur_dtott * cur_rsky)
         cur_rhot = cur_romix + (cur_utott * cur_dtott * cur_rsky) / (1. - cur_rsky * cur_astot)
         return(cur_rhot, cur_romix)
 
@@ -39,12 +40,9 @@ def rhod_fit_model(raa, vza, sza, pressure = 1013, rhod = None, sensor=None, res
     ## import sensor rsr
     if sensor is not None:
         resample = True
-        rsr_file = ac.config['pp_data_dir']+'/RSR/'+sensor+'.txt'
-        rsr, rsr_bands = ac.shared.rsr_read(file=rsr_file)
-
-        wave_hyp = np.linspace(0.25, 2.5, num=int(1+((2.5-0.25)/0.0025)))
-        rsr_wave = ac.shared.rsr_convolute_dict(wave_hyp,wave_hyp, rsr)
-        rsr_wave_nm = {b:int(np.round(1000. * rsr_wave[b])) for b in rsr_wave}
+        if rsr is None:
+            rsr_file = ac.config['pp_data_dir']+'/RSR/'+sensor+'.txt'
+            rsr, rsr_bands = ac.shared.rsr_read(file=rsr_file)
     else:
         resample = False
 

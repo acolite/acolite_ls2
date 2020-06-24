@@ -52,6 +52,7 @@
 ##                2019-12-11 (QV) added output of extra ac parameters for tiled DSF
 ##                2020-06-22 (QV) added new sky reflectance correction taking the aerosol load into account (for fixed DSF)
 ##                                added option to skip bands from the DSF (e.g. SWIR bands on S2)
+##                2020-06-23 (QV) added new sky reflectance correction for tiled processing (needs some speed improvement)
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -711,6 +712,18 @@ def acolite_ac(bundle, odir,
             t0 = time.time()
             print('Reading LUT data')
             lut_data_dict = pp.aerlut.read_lut_data(metadata['SATELLITE_SENSOR'], luts=luts)
+            ## import new LUTs
+            if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                ## import luts
+                lutd = pp.aerlut.import_luts()
+                cluts = list(lutd.keys())
+                mods = [int(l[-1]) for l in cluts]
+
+                ## import sky luts
+                rlutd = {}
+                for aermod in mods:
+                    l, m, d, r = pp.aerlut.rsky_read_lut(aermod)
+                    rlutd[aermod] = {'lut':l, 'meta':m, 'dim':d, 'rgi':r}
             t1 = time.time()
             print('Reading LUTs took {} seconds'.format(t1-t0))
             ###
@@ -909,6 +922,7 @@ def acolite_ac(bundle, odir,
                 tags = ['tau550', 'band', 'model']
                 tile_output = {tag: zeros(tiles)+nan for tag in tags}
                 tags = ['ratm', 'rorayl','dtott', 'utott', 'astot']
+                if (sky_correction) & (sky_correction_option == 'rsky_new'): tags.append('rsky')
 
                 ## add extra ac parameters output
                 if (extra_ac_parameters) & (dsf_write_tiled_parameters):
@@ -945,26 +959,70 @@ def acolite_ac(bundle, odir,
                                 while azii>180: azii=abs(azii-180)
                                 metadata_tile['AZI']=azii
 
-                        ### get 'best' AOT for this rdark
-                        (ratm_s,rorayl_s,dtotr_s,utotr_s,dtott_s,utott_s,astot_s, tau550),\
-                        (bands_sorted, tau550_all_bands, dark_idx, sel_rmsd, rdark_sel, pixel_idx), \
-                        (sel_model_lut, sel_model_lut_meta) = pp.ac.select_model(metadata_tile, rdark,
-                                                                                         lut_data_dict=lut_data_dict, luts=luts,
-                                                                                         model_selection=dsf_model_selection,
-                                                                                         force_band=dsf_force_band,
-                                                                                         rdark_list_selection=dsf_list_selection,
-                                                                                         pressure=pressure)
                         cur_azi = 1.0*metadata_tile['AZI']
                         cur_thv = 1.0*metadata_tile['THV']
                         cur_ths = 1.0*metadata_tile['THS']
+
+                        if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                            res = pp.ac.rhod_fit_model(metadata_tile['AZI'], metadata_tile['THV'], metadata_tile['THS'],
+                                                       pressure = pressure, rhod = rdark, sensor=sensor, rsr=rsr, lutd=lutd, rlutd=rlutd)
+
+                            sel_mod = res['mod_sel']
+                            sel_mod_number = sel_mod[-1]
+                            dark_idx = res[sel_mod]['rmsd_bands']
+                            tau550 = res[sel_mod]['tau_fit']
+                            tau550_all_bands = res[sel_mod]['tau_fits']
+
+                            ## lut things
+                            ipd = {par:ip for ip,par in enumerate(lutd[sel_mod]['meta']['par'])}
+                            waves = lutd[sel_mod]['meta']['wave']
+
+                            ### get resampled parameters
+                            ret_par = {}
+                            for ap in ['romix','rorayl','dtotr','utotr','dtott', 'utott', 'astot']:
+                                #ret_par[ap] = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta,
+                                #                                              cur_azi, cur_thv, cur_ths, tau550, par=ap)
+                                ret_par[ap] = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd[ap], waves, metadata_tile['AZI'], metadata_tile['THV'], metadata_tile['THS'], tau550)), rsr)
+
+
+                            ## test rsky retrieval
+                            ret_rsky = rlutd[int(sel_mod_number)]['rgi']((waves, metadata_tile['AZI'], metadata_tile['THV'], metadata_tile['THS'], tau550))
+                            rsky_b = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr)
+                            rsky_s = {b: (ret_par['utott'][b] * ret_par['dtott'][b] * rsky_b[b])/(1. - rsky_b[b] * ret_par['astot'][b]) for b in rsky_b}
+                        else:
+                            ### get 'best' AOT for this rdark
+                            (ratm_s,rorayl_s,dtotr_s,utotr_s,dtott_s,utott_s,astot_s, tau550),\
+                            (bands_sorted, tau550_all_bands, dark_idx, sel_rmsd, rdark_sel, pixel_idx), \
+                            (sel_model_lut, sel_model_lut_meta) = pp.ac.select_model(metadata_tile, rdark,
+                                                                                     lut_data_dict=lut_data_dict, luts=luts,
+                                                                                     model_selection=dsf_model_selection,
+                                                                                     force_band=dsf_force_band,
+                                                                                     rdark_list_selection=dsf_list_selection,
+                                                                                     pressure=pressure)
+                            sel_mod_number = sel_model_lut_meta['aermod'][0]
+                            ret_par = {}
+                            ret_par['romix'] = ratm_s
+                            ret_par['rorayl'] = rorayl_s
+                            ret_par['dtotr'] = dtotr_s
+                            ret_par['utotr'] = utotr_s
+                            ret_par['dtott'] = dtott_s
+                            ret_par['utott'] = utott_s
+                            ret_par['astot'] = astot_s
 
                         ## output extra ac parameters
                         if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                             extra_ac = {}
                             for ap in lut_data_dict[luts[0]]['meta']['par']:
                                 if ap in ['ratm', 'rorayl','dtott', 'utott', 'astot']: continue
-                                extra_ac[ap] = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta,
-                                                  cur_azi, cur_thv, cur_ths, tau550, par=ap)
+                                #extra_ac[ap] = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta,
+                                #                  cur_azi, cur_thv, cur_ths, tau550, par=ap)
+                                if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                                    retv = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd[ap], waves, metadata_tile['AZI'], metadata_tile['THV'], metadata_tile['THS'], tau550)), rsr)
+                                else:
+                                    retv = pp.aerlut.interplut_sensor(sel_model_lut, sel_model_lut_meta,
+                                                      cur_azi, cur_thv, cur_ths, tau550, par=ap)
+                                extra_ac[ap] = retv
+
 
                         ## store retrievals per band
                         for b,band_name in enumerate(ordered_bands):
@@ -973,11 +1031,14 @@ def acolite_ac(bundle, odir,
                             tile_data[band_name]['tau550'][yi,xi]=tau550_all_bands[band_dict[band_name]['lut_name']]
 
                             ## atmospheric parameters computed with lowest tau550 for this dark spectrum
-                            tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_s[band_dict[band_name]['lut_name']]
-                            tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_s[band_dict[band_name]['lut_name']]
-                            tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_dict[band_name]['lut_name']]
-                            tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_dict[band_name]['lut_name']]
-                            tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_dict[band_name]['lut_name']]
+                            for ap in ['romix', 'rorayl', 'dtott', 'utott', 'astot']:
+                                apo = ap
+                                if ap == 'romix': apo = 'ratm'
+                                tile_output['atm'][band_name][apo][yi,xi] = ret_par[ap][band_dict[band_name]['lut_name']]
+
+                            ## add new sky correction
+                            if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                                tile_output['atm'][band_name]['rsky'][yi,xi] = rsky_s[band_dict[band_name]['lut_name']]
 
                             ## if output extra ac parameters
                             if (extra_ac_parameters) & (dsf_write_tiled_parameters):
@@ -1002,11 +1063,15 @@ def acolite_ac(bundle, odir,
                                 ## save pan band results in current tile
                                 band_name = '8'
                                 if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
-                                tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_s[band_name]
-                                tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_s[band_name]
-                                tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_s[band_name]
-                                tile_output['atm'][band_name]['utott'][yi,xi] = utott_s[band_name]
-                                tile_output['atm'][band_name]['astot'][yi,xi] = astot_s[band_name]
+                                for ap in ['romix', 'rorayl', 'dtott', 'utott', 'astot']:
+                                    apo = ap
+                                    if ap == 'romix': apo = 'ratm'
+                                    tile_output['atm'][band_name][apo][yi,xi] = ret_par[ap][band_dict[band_name]['lut_name']]
+
+                                ## add new sky correction
+                                if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                                    tile_output['atm'][band_name]['rsky'][yi,xi] = rsky_s[band_name]
+
                                 ## if output extra ac parameters
                                 if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                                     for ap in extra_ac:
@@ -1034,11 +1099,17 @@ def acolite_ac(bundle, odir,
                                 tile_output['atm'][band_name]['dtott'][yi,xi] = dtott_o[band_name]
                                 tile_output['atm'][band_name]['utott'][yi,xi] = utott_o[band_name]
                                 tile_output['atm'][band_name]['astot'][yi,xi] = astot_o[band_name]
+
+                                ## add new sky correction
+                                if (sky_correction) & (sky_correction_option == 'rsky_new'):
+                                    rsr_o, rsr_o_bands = pp.shared.rsr_read(file=ob_rsr_file)
+                                    rsky_o = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr_o)
+                                    tile_output['atm'][band_name]['rsky'][yi,xi] = rsky_o[band_name]
                         ## end tiled ob
 
                         ## selected parameters per tile
                         tile_output['tau550'][yi,xi] = tau550
-                        tile_output['model'][yi,xi] = sel_model_lut_meta['aermod'][0]
+                        tile_output['model'][yi,xi] = sel_mod_number# sel_model_lut_meta['aermod'][0]
 
                         if len(dark_idx) == 1:
                              dark_name = dark_idx
@@ -1212,7 +1283,7 @@ def acolite_ac(bundle, odir,
                     raa = attributes['AZI']
                     vza = attributes['THV']
                     sza = attributes['THS']
-                    res = pp.ac.rhod_fit_model(raa, vza, sza, pressure = pressure, rhod = rdark_sel, sensor=sensor, lutd=lutd)
+                    res = pp.ac.rhod_fit_model(raa, vza, sza, pressure = pressure, rhod = rdark_sel, sensor=sensor, rsr=rsr, lutd=lutd, rlutd=rlutd)
                     sel_mod = res['mod_sel']
                     model_name = res['mod_sel']
                     tau550 = res[sel_mod]['tau_fit']
@@ -1260,7 +1331,7 @@ def acolite_ac(bundle, odir,
 
                     rsky_b = pp.shared.rsr_convolute_dict(waves, ret_rsky, rsr)
                     rsky_s = {b: (utott_s[b] * dtott_s[b] * rsky_b[b])/(1. - rsky_b[b] * astot_s[b]) for b in rsky_b}
-                    print(rsky_s)
+                    #print(rsky_s)
 
                     for band in rsky_s.keys():
                         attributes['{}_r_sky'.format(band)] = rsky_s[band]
@@ -1615,13 +1686,17 @@ def acolite_ac(bundle, odir,
                         band_data -= rsky[band_dict[band_name]['lut_name']]
                         ds_att['rsky'] = rsky[band_dict[band_name]['lut_name']]
                     if (sky_correction_option == 'rsky_new') & (aerosol_correction == 'dark_spectrum'):
-                        if resolved_angles:
-                            rsky_s_cur = pp.ac.tiles_interp(ac_data[btag]['rsky'], tp_xnew, tp_ynew)
+                        if dsf_path_reflectance == 'tiled':
+                            rsky_s_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['rsky'], xnew, ynew)
                             band_data -= rsky_s_cur
-                        else:
-                            band_data -= rsky_s[band_dict[band_name]['lut_name']]
-                            ds_att['rsky'] = rsky_s[band_dict[band_name]['lut_name']]
-
+                            print('tiled rsky')
+                        if dsf_path_reflectance == 'fixed':
+                            if resolved_angles:
+                                rsky_s_cur = pp.ac.tiles_interp(ac_data[btag]['rsky'], tp_xnew, tp_ynew)
+                                band_data -= rsky_s_cur
+                            else:
+                                band_data -= rsky_s[band_dict[band_name]['lut_name']]
+                                ds_att['rsky'] = rsky_s[band_dict[band_name]['lut_name']]
 
                 ## write surface reflectance
                 if (nc_write_rhos | (nc_write_rhow)):
