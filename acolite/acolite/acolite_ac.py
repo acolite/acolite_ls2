@@ -1312,6 +1312,7 @@ def acolite_ac(bundle, odir,
 
                     ### get resampled parameters
                     ret_s = lutd[sel_mod]['rgi']((pressure, ipd['romix'], waves, raa, vza, sza, tau550))
+                    ret_s[np.isnan(ret_s)] = 0
                     ratm_s = pp.shared.rsr_convolute_dict(waves, ret_s, rsr)
                     rorayl_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['rorayl'], waves, raa, vza, sza, tau550)), rsr)
                     dtotr_s = pp.shared.rsr_convolute_dict(waves, lutd[sel_mod]['rgi']((pressure, ipd['dtotr'], waves, raa, vza, sza, tau550)), rsr)
