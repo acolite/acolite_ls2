@@ -53,6 +53,7 @@
 ##                2020-06-22 (QV) added new sky reflectance correction taking the aerosol load into account (for fixed DSF)
 ##                                added option to skip bands from the DSF (e.g. SWIR bands on S2)
 ##                2020-06-23 (QV) added new sky reflectance correction for tiled processing (needs some speed improvement)
+##                2020-07-14 (QV) added nan fillvalue to reflectance outputs
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -831,10 +832,10 @@ def acolite_ac(bundle, odir,
                             if limit is not None:
                                 band_sub = band_full[sub[1]:sub[1]+sub[3],sub[0]:sub[0]+sub[2]]
                                 crop_dims = (sub[3],sub[2])
-                                pp.output.nc_write(l1r_ncfile, parname, band_sub, dataset_attributes=ds_att,
+                                pp.output.nc_write(l1r_ncfile, parname, band_sub, dataset_attributes=ds_att, fillvalue=np.nan,
                                                new=l1r_nc_new, global_dims=crop_dims, nc_compression=l1r_nc_compression)
                             else:
-                                pp.output.nc_write(l1r_ncfile, parname, band_full, dataset_attributes=ds_att,
+                                pp.output.nc_write(l1r_ncfile, parname, band_full, dataset_attributes=ds_att, fillvalue=np.nan,
                                                    new=l1r_nc_new, global_dims=global_dims, nc_compression=l1r_nc_compression)
                             l1r_nc_new=False
 
@@ -1176,11 +1177,11 @@ def acolite_ac(bundle, odir,
                             print('Writing band {} to {}'.format(band_name,l1r_ncfile))
                             if limit is not None:
                                 crop_dims = (sub[3],sub[2])
-                                pp.output.nc_write(l1r_ncfile, parname_t, band_data, dataset_attributes=ds_att,
+                                pp.output.nc_write(l1r_ncfile, parname_t, band_data, dataset_attributes=ds_att, fillvalue=np.nan,
                                                    new=l1r_nc_new, global_dims=crop_dims, nc_compression=l1r_nc_compression)
 
                             else:
-                                pp.output.nc_write(l1r_ncfile, parname_t, band_data, dataset_attributes=ds_att,
+                                pp.output.nc_write(l1r_ncfile, parname_t, band_data, dataset_attributes=ds_att, fillvalue=np.nan,
                                                        new=l1r_nc_new, global_dims=global_dims, nc_compression=l1r_nc_compression)
                             l1r_nc_new=False
 
@@ -1656,7 +1657,7 @@ def acolite_ac(bundle, odir,
                 if nc_write_rhot:
                     ds_att['standard_name']='toa_bidirectional_reflectance'
                     ds_att['units']=1
-                    pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new,
+                    pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
                                        attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                     l2r_nc_new=False
 
@@ -1672,7 +1673,8 @@ def acolite_ac(bundle, odir,
                     ds_att['standard_name']='rayleigh_corrected_reflectance'
                     ds_att['units']=1
                     rrc_cur[valid_mask == 0] = nan
-                    pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(wave), rrc_cur, new=l2r_nc_new, attributes=attributes, dataset_attributes={'wavelength':float(wave),'band_name':band_name})
+                    pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(wave), rrc_cur, new=l2r_nc_new,  fillvalue=np.nan,
+                                        attributes=attributes, dataset_attributes={'wavelength':float(wave),'band_name':band_name})
                     rrc_cur = None
                     l2r_nc_new=False
 
@@ -1802,7 +1804,7 @@ def acolite_ac(bundle, odir,
                             ds_att['standard_name']='surface_bidirectional_reflectance'
                             ds_att['units']=1
                             rhos_data[valid_mask == 0] = nan
-                            pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new,
+                            pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
                                            attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                             l2r_nc_new = False
 
@@ -1813,7 +1815,7 @@ def acolite_ac(bundle, odir,
                             ds_att['units']=1
                             rhos_data[valid_mask == 0] = nan
                             rhos_data[mask] = nan
-                            pp.output.nc_write(l2r_ncfile, parname_w, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new,
+                            pp.output.nc_write(l2r_ncfile, parname_w, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
                                                attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                             l2r_nc_new=False
 
@@ -1838,11 +1840,11 @@ def acolite_ac(bundle, odir,
             ## write EXP variable rhoam and epsilon
             if (aerosol_correction == 'exponential') & (exp_fixed_epsilon is False):
                 rhoam[mask] = nan
-                pp.output.nc_write(l2r_ncfile, 'rhoam', rhoam, new=l2r_nc_new, attributes=attributes,
+                pp.output.nc_write(l2r_ncfile, 'rhoam', rhoam, new=l2r_nc_new, attributes=attributes, fillvalue=np.nan,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
                 l2r_nc_new = False
                 epsilon[mask] = nan
-                pp.output.nc_write(l2r_ncfile, 'epsilon', epsilon, new=l2r_nc_new, attributes=attributes,
+                pp.output.nc_write(l2r_ncfile, 'epsilon', epsilon, new=l2r_nc_new, attributes=attributes, fillvalue=np.nan,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
             ## end write EXP variable
             ##############################
@@ -1863,7 +1865,8 @@ def acolite_ac(bundle, odir,
                         else: continue
                     else:
                         data = pp.landsat.get_bt(bundle, metadata, band, sub=sub)
-                    pp.output.nc_write(l2r_ncfile, parname, data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att, nc_compression=l2r_nc_compression, chunking=chunking)
+                    pp.output.nc_write(l2r_ncfile, parname, data, new=l2r_nc_new, attributes=attributes,  fillvalue=np.nan,
+                                        dataset_attributes=ds_att, nc_compression=l2r_nc_compression, chunking=chunking)
             ## end write BT
             ##############################
 
@@ -1881,7 +1884,8 @@ def acolite_ac(bundle, odir,
                         else: continue
                     else:
                         data = pp.landsat.get_bt(bundle, metadata, band, sub=sub, return_radiance=True)
-                    pp.output.nc_write(l2r_ncfile, parname, data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att, nc_compression=l2r_nc_compression, chunking=chunking)
+                    pp.output.nc_write(l2r_ncfile, parname, data, new=l2r_nc_new, attributes=attributes,  fillvalue=np.nan,
+                                        dataset_attributes=ds_att, nc_compression=l2r_nc_compression, chunking=chunking)
             ## end write Lt TIRS
             ##############################
 
@@ -1951,14 +1955,14 @@ def acolite_ac(bundle, odir,
                     if os.path.exists(l1_pan_ncdf):
                         data = pp.nc_data(l1_pan_ncdf, parname)
                         if l8_output_pan:
-                            pp.output.nc_write(l1r_ncfile_pan, parname, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
+                            pp.output.nc_write(l1r_ncfile_pan, parname, data, new=True, fillvalue=np.nan, nc_compression=l1r_nc_compression, chunking=chunking)
                     else:
                         print('Could not find L1 pan NetCDF.')
 
                     if os.path.exists(l1_pan_ms_ncdf):
                         data = pp.nc_data(l1_pan_ms_ncdf, parname_ms)
                         if l8_output_pan_ms:
-                            pp.output.nc_write(l1r_ncfile_pan_ms, parname_ms, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
+                            pp.output.nc_write(l1r_ncfile_pan_ms, parname_ms, data, new=True, fillvalue=np.nan, nc_compression=l1r_nc_compression, chunking=chunking)
                     else:
                         print('Could not find L1 pan ms NetCDF.')
                 else:
@@ -1968,12 +1972,12 @@ def acolite_ac(bundle, odir,
 
                     if data is not None:
                         if l8_output_pan:
-                            pp.output.nc_write(l1r_ncfile_pan, parname, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
+                            pp.output.nc_write(l1r_ncfile_pan, parname, data, new=True, fillvalue=np.nan, nc_compression=l1r_nc_compression, chunking=chunking)
 
                         if l8_output_pan_ms:
                             parname = 'rhot_pan_ms'
                             data = zoom(data, zoom=0.5, order=1)
-                            pp.output.nc_write(l1r_ncfile_pan_ms, parname, data, new=True, nc_compression=l1r_nc_compression, chunking=chunking)
+                            pp.output.nc_write(l1r_ncfile_pan_ms, parname, data, new=True, fillvalue=np.nan, nc_compression=l1r_nc_compression, chunking=chunking)
                 data = None
             ## end write pan
             ##############################
@@ -2076,7 +2080,7 @@ def acolite_ac(bundle, odir,
                     ## with fixed DSF
                     if ob_cfg['combine'] == 'before':
                         ## write TOA data
-                        pp.output.nc_write(l2r_ncfile, 'rhot_{}'.format(ob_wave), band_data, new=l2r_nc_new, attributes=attributes, dataset_attributes=ds_att)
+                        pp.output.nc_write(l2r_ncfile, 'rhot_{}'.format(ob_wave), band_data, new=l2r_nc_new, fillvalue=np.nan, attributes=attributes, dataset_attributes=ds_att)
                         new=False
 
                         if dsf_path_reflectance == 'fixed':
@@ -2109,7 +2113,7 @@ def acolite_ac(bundle, odir,
                         if nc_write_rhorc:
                             rrc_cur = (band_data - rorayl_o[btag]) / (dtotr_o[btag]*utotr_o[btag])
                             rrc_cur[valid_mask == 0] = nan
-                            pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(ob_wave), rrc_cur, new=new, attributes=attributes, dataset_attributes=ds_att)
+                            pp.output.nc_write(l2r_ncfile, 'rhorc_{}'.format(ob_wave), rrc_cur, new=new, attributes=attributes, fillvalue=np.nan, dataset_attributes=ds_att)
                             rrc_cur = None
                             new=False
 
@@ -2156,7 +2160,7 @@ def acolite_ac(bundle, odir,
 
                     ## write surface reflectance
                     rhos_data[valid_mask == 0] = nan
-                    pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(ob_wave), rhos_data, dataset_attributes=ds_att)
+                    pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(ob_wave), rhos_data, fillvalue=np.nan, dataset_attributes=ds_att)
                     rhos_data = None
                 else:
                     print('L1 pan ms NetCDF file not found')
@@ -2302,7 +2306,7 @@ def acolite_ac(bundle, odir,
                 rhog_ref = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_user_idx])))
 
             ## write reference glint
-            if glint_write_rhog_ref: pp.output.nc_write(l2r_ncfile, 'rhog_ref', rhog_ref)
+            if glint_write_rhog_ref: pp.output.nc_write(l2r_ncfile, 'rhog_ref', rhog_ref, fillvalue=np.nan)
 
             ## compute glint correction factors
             for b,band_name in enumerate(ordered_bands):
@@ -2328,10 +2332,10 @@ def acolite_ac(bundle, odir,
 
                 cur_gcor = cur_rhos - cur_rhog
                 cur_gcor[sub_nogc] = cur_rhos[sub_nogc]
-                if glint_write_rhog_all: pp.output.nc_write(l2r_ncfile, 'rhog_{}'.format(wave), cur_rhog)
+                if glint_write_rhog_all: pp.output.nc_write(l2r_ncfile, 'rhog_{}'.format(wave), cur_rhog, fillvalue=np.nan)
                 cur_rhos, cur_rhog = None, None
 
-                pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(wave), cur_gcor)
+                pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(wave), cur_gcor, fillvalue=np.nan)
                 cur_gcor = None
        ## end glint correction
        ####################################

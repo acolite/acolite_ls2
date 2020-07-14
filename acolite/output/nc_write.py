@@ -14,12 +14,13 @@
 ##                QV 2018-04-17 changed to float32 for float datasets, added Rrs to auto_grouping
 ##                QV 2018-07-18 changed datatype for writing, to avoid int overflow
 ##                QV 2018-07-24 changed global attributes
+##                QV 2020-07-14 added fillvalue keyword
 
 def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
                  new=False, attributes=None, keep=True, offset=None, replace_nan=False, metadata=None, dataset_attributes=None, double=False,
-                 chunking=True, chunk_tiles=[10,10], chunksizes=None,
+                 chunking=True, chunk_tiles=[10,10], chunksizes=None, fillvalue=None,
                  format='NETCDF4',#'NETCDF4_CLASSIC',
-                 nc_compression=False # currently off: file saving takes *much* longer, 
+                 nc_compression=False # currently off: file saving takes *much* longer,
                                       #about 30% file size reduction for Pléiades
                  ):
 
@@ -74,7 +75,7 @@ def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
         data = data.astype(float32)
 
     ## write data
-    if dataset in nc.variables.keys(): 
+    if dataset in nc.variables.keys():
         ## dataset already in NC file
         if offset is None:
             if data.dtype in (float32, float64): nc.variables[dataset][:] = nan
@@ -90,7 +91,9 @@ def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
                 nc.variables[dataset][offset[1]:offset[1]+dims[0],offset[0]:offset[0]+dims[1]] = data
     else:
         ## new dataset
-        var = nc.createVariable(dataset,data.dtype,('y','x'), zlib=nc_compression,chunksizes=chunksizes)
+        var = nc.createVariable(dataset,data.dtype,('y','x'),
+                                fill_value=fillvalue,
+                                zlib=nc_compression,chunksizes=chunksizes)
         if wavelength is not None: setattr(var, 'wavelength', float(wavelength))
         ## set attributes
         if dataset_attributes is not None:
