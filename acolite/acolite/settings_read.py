@@ -18,7 +18,7 @@ def settings_read(file):
             if len(split) < 2: continue
             split = [s.strip() for s in split]
             var = split[0]
-            val = split[1].split(',')
+            val = [s.strip() for s in split[1].split(',')]
             if len(val) == 1:
                 val = val[0]
                 if val in ['True','true','1']: val=True
