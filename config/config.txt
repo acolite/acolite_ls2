@@ -7,7 +7,3 @@ hgt_dir=data/SRTMGL3.003
 
 ## MET files
 met_dir=data/MET
-
-## EarthData
-EARTHDATA_u=
-EARTHDATA_p=

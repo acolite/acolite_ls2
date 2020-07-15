@@ -24,6 +24,7 @@
 ##                     2019-11-29 (QV) added extra ac parameters output for fixed DSF
 ##                     2020-02-24 (QV) added output of lat/lon to geotiff
 ##                     2020-03-08 (QV) added lut selection to settings file
+##                     2020-07-15 (QV) added EarthData login also in processing settings
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -97,6 +98,14 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     except:
         print('No write access to the output directory: {}'.format(setu['output']))
         raise BaseException('WriteError')
+
+    ## set up earthdata login
+    if ('EARTHDATA_u' in setu) & ('EARTHDATA_p' in setu):
+        if len(setu['EARTHDATA_u']) > 0:
+            os.environ['EARTHDATA_u'] = setu['EARTHDATA_u']
+        if len(setu['EARTHDATA_p']) > 0:
+            os.environ['EARTHDATA_p'] = setu['EARTHDATA_p']
+    ##
 
     ## time of processing start
     time_start = datetime.datetime.now()
