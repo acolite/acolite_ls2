@@ -2,23 +2,23 @@
 ## imports LUT made with 6SV and converts to NetCDF
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## 2016-07-05
-## modifications:
+## modifications:   2020-07-14 (QV)
 
 def import_lut(lutid,lutdir,override=0):
     class Structure(object):
         pass
 
     import os, sys
+    import numpy as np
 
     lutdat=lutdir+'/'+lutid+'/'+lutid+'.dat'
     lutdim=lutdir+'/'+lutid+'/'+lutid+'.dim'
     lutnc=lutdir+'/'+lutid+'/'+lutid+'.nc'
 
     if (os.path.isfile(lutnc)) & (override == 1): os.remove(lutnc)
-        
-    if (os.path.isfile(lutnc) == 0) & (os.path.isfile(lutdat)) & (os.path.isfile(lutdim)): 
+
+    if (os.path.isfile(lutnc) == 0) & (os.path.isfile(lutdat)) & (os.path.isfile(lutdim)):
         import csv, re
-        import numpy as np
 
         ## read metadata
         try:
@@ -27,7 +27,7 @@ def import_lut(lutid,lutdir,override=0):
             waves="0.39 0.41 0.44 0.47 0.51 0.55 0.61 0.67 0.75 0.865 1.04 1.24 1.61 2.25"
             ## for April 2017 simulations
             waves="0.39 0.41 0.44 0.47 0.51 0.55 0.61 0.67 0.75 0.865 1.04 1.24 1.55 1.61 1.66 2.10 2.25 2.40"
-            wave = [float(i) for i in waves.split(' ')] 
+            wave = [float(i) for i in waves.split(' ')]
             meta=Structure()
             meta.wave = wave
             for line in data:
@@ -50,17 +50,17 @@ def import_lut(lutid,lutdir,override=0):
                 if re.match('MOD3=',line[0]): meta.mod3 = [float(i) for i in split[1].split(' ')]
                 if re.match('MOD4=',line[0]): meta.mod4 = [float(i) for i in split[1].split(' ')]
             #print(meta.keys())
-            #if 'wnd' in meta.keys(): 
+            #if 'wnd' in meta.keys():
             #    print('wnd')
             #    lut_dims = (len(meta.par), len(meta.wave), len(meta.azi), len(meta.thv), len(meta.ths), len(meta.wnd), len(meta.tau))
-            #else: 
+            #else:
             #lut_dims = (len(meta.par), len(meta.wave), len(meta.azi), len(meta.thv), len(meta.ths), 1, len(meta.tau))
             meta.wnd=[-1]
             lut_dims = (len(meta.par), len(meta.wave), len(meta.azi), len(meta.thv), len(meta.ths), len(meta.wnd), len(meta.tau))
         except:
             print(sys.exc_info()[0])
             print('Failed to import LUT metadata (id='+lutid+')')
-            
+
         ## read data
         try:
             file_open = open(lutdat, newline='')
@@ -82,10 +82,10 @@ def import_lut(lutid,lutdir,override=0):
             if os.path.isfile(lutnc) == 0:
                 from netCDF4 import Dataset
                 nc = Dataset(lutnc, 'w', format='NETCDF4_CLASSIC')
-                for i in meta.__dict__.keys(): 
+                for i in meta.__dict__.keys():
                     attdata=meta.__dict__[i]
                     if isinstance(attdata,list):
-                        if isinstance(attdata[0],str): 
+                        if isinstance(attdata[0],str):
                             attdata=','.join(attdata)
                     setattr(nc, i, attdata)
                 #for i in meta.__dict__.keys(): print(meta.__dict__[i])
@@ -106,7 +106,7 @@ def import_lut(lutid,lutdir,override=0):
             if os.path.isfile(lutnc): os.remove(lutnc)
             print(sys.exc_info()[0])
             print('Failed to write LUT data to NetCDF (id='+lutid+')')
-            
+
     ## read dataset from NetCDF
     try:
         if os.path.isfile(lutnc):
@@ -126,5 +126,11 @@ def import_lut(lutid,lutdir,override=0):
         print(sys.exc_info()[0])
         print('Failed to open LUT data from NetCDF (id='+lutid+')')
 
-        
-    return lut, meta
+    ## for the  and Continental and Urban models (1,3)
+    ## romix nans were retrieved for wavelengths > 2 micron and aot == 0.001
+    ## 500mb for C+U and 1013/1100 for U
+    ## if any nans set then to 0
+    sub = np.where(np.isnan(lut))
+    lut[sub] = 0
+
+    return(lut, meta)

@@ -24,6 +24,8 @@ from .download_file import download_file
 
 from .rsr_convolute import rsr_convolute
 from .rsr_convolute_dict import rsr_convolute_dict
+from .rsr_convolute_nd import rsr_convolute_nd
+
 from .rsr_read import rsr_read
 from .sensor_wave import sensor_wave
 
