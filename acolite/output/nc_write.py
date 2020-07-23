@@ -15,9 +15,12 @@
 ##                QV 2018-07-18 changed datatype for writing, to avoid int overflow
 ##                QV 2018-07-24 changed global attributes
 ##                QV 2020-07-14 added fillvalue keyword
+##                QV 2020-07-22 added update_attributes keyword
+##                QV 2020-07-23 skip fillvalue in ds attributes
 
 def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
-                 new=False, attributes=None, keep=True, offset=None, replace_nan=False, metadata=None, dataset_attributes=None, double=False,
+                 new=False, attributes=None, update_attributes=False,
+                 keep=True, offset=None, replace_nan=False, metadata=None, dataset_attributes=None, double=False,
                  chunking=True, chunk_tiles=[10,10], chunksizes=None, fillvalue=None,
                  format='NETCDF4',#'NETCDF4_CLASSIC',
                  nc_compression=False # currently off: file saving takes *much* longer,
@@ -70,6 +73,14 @@ def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
         nc.createDimension('y', global_dims[0])
     else:
         nc = Dataset(ncfile, 'a', format=format)
+        if update_attributes:
+            if attributes is not None:
+                for key in attributes.keys():
+                    if attributes[key] is not None:
+                        try:
+                            setattr(nc, key, attributes[key])
+                        except:
+                            print('Failed to write attribute: {}'.format(key))
 
     if (not double) & (data.dtype == float64):
         data = data.astype(float32)
@@ -98,6 +109,7 @@ def nc_write(ncfile, dataset, data, wavelength=None, global_dims=None,
         ## set attributes
         if dataset_attributes is not None:
             for att in dataset_attributes.keys():
+                if att in ['_FillValue']: continue
                 setattr(var, att, dataset_attributes[att])
 
         if offset is None:
