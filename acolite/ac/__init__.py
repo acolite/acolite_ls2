@@ -2,6 +2,8 @@ from .exponential_epsilon import exponential_epsilon
 from .f0_sensor import f0_sensor
 from .get_dark_spectrum import get_dark_spectrum
 from .o3_transmittance import o3_transmittance
+from .gas_transmittance import gas_transmittance
+
 from .toa_rsky import toa_rsky
 from .select_model import select_model
 from .select_rdark import select_rdark
