@@ -1,8 +1,9 @@
 ## import sky reflectance lut
 ## QV 2020-03-17
 ## last updates: 2020-07-15 (QV) added sensor resampling
+##               2020-07-25 (QV) new default LUT
 
-def rsky_read_lut(model, lutbase='ACOLITE-RSKY-202003', sensor=None, override=False):
+def rsky_read_lut(model, lutbase='ACOLITE-RSKY-202007', sensor=None, override=False):
     import os
     import numpy as np
     import scipy.interpolate
@@ -46,7 +47,7 @@ def rsky_read_lut(model, lutbase='ACOLITE-RSKY-202003', sensor=None, override=Fa
                     print('Resampling {} to {}'.format(model, sensor))
 
                     ## read lut
-                    lut, meta, dim, rgi = ac.aerlut.rsky_read_lut(model)
+                    lut, meta, dim, rgi = ac.aerlut.rsky_read_lut(model, lutbase=lutbase)
 
                     ## resample to bands
                     lut_sensor = {}

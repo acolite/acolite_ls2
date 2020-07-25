@@ -3,10 +3,11 @@
 ## Last modifications: 2020-07-14 (QV) added sensor option
 ##                     2020-07-14 (QV) changed sensor option to a dict per band
 ##                     2020-07-22 (QV) added the rsky lut to the lut and rgi - need to update rsky azimuths
+##                     2020-07-25 (QV) added updates to rsky lut
 
 def import_luts(pressures = [500, 1013, 1100],
                 base_luts = ['PONDER-LUT-201704-MOD1', 'PONDER-LUT-201704-MOD2'],
-                sensor=None, add_rsky=False):
+                sensor=None, add_rsky=False, rsky_lut = 'ACOLITE-RSKY-202007'):
     import scipy.interpolate
     import numpy as np
     import acolite as ac
@@ -71,19 +72,33 @@ def import_luts(pressures = [500, 1013, 1100],
 
             ## add rsky if requested
             if add_rsky:
-                print('Update of rsky azimuths needed!')
-                rlut, rmeta, rdim, rrgi = ac.aerlut.rsky_read_lut(int(lut[-1]), sensor=sensor)
+                if rsky_lut == 'ACOLITE-RSKY-202003':
+                    print('Update of rsky azimuths needed!')
+
+                rlut, rmeta, rdim, rrgi = ac.aerlut.rsky_read_lut(int(lut[-1]), sensor=sensor, lutbase=rsky_lut)
 
                 ## current pars
                 ipd = {p:i for i,p in enumerate(lut_dict[lut]['meta']['par'])}
 
                 ## run through bands
                 for band in rlut:
-                    ## add 180 degree azimuth (==0 degree) to end of rsky lut
-                    tmp = np.insert(rlut[band], (-1), rlut[band][ 0, :, :, :], axis=0)
-                    ## and remove last two vza  of rsky lut
-                    tmp = tmp[:,:-2, :,:]
-                    ## add empty axis
+                    ## fix angles from 202003 LUT
+                    ## this lut has a different AZI spacing for angles > 100
+                    ## and two extra view zenith angles
+                    if rsky_lut == 'ACOLITE-RSKY-202003':
+                        ## add 180 degree azimuth (==0 degree) to end of rsky lut
+                        tmp = np.insert(rlut[band], (-1), rlut[band][ 0, :, :, :], axis=0)
+
+                    ## fix angles for the 202007 LUT
+                    ## this one has one extra 90 degree azimuth
+                    ## and two extra view zenith angles
+                    if rsky_lut == 'ACOLITE-RSKY-202007':
+                        ## remove 90 azimuth from LUT (position 6)
+                        tmp = np.delete(rlut[band], 6, axis=0)
+
+                    ## remove last two vza from OSOAA LUT (64 and 72 degrees)
+                    tmp = tmp[:,:-2, :, :]
+                    ## add empty axis (wind placeholder)
                     tmp = tmp[:,:,:,None, :]
 
                     ## add to the LUT
