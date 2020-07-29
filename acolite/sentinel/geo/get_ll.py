@@ -8,6 +8,7 @@
 ##                2018-05-15 (QV) added res string
 ##                2018-06-06 (QV) changed xy output
 ##                2018-07-18 (QV) changed acolite import name
+##                2020-07-29 (QV) fixed one pixel offset in y
 
 def get_ll(metadata, limit=None, xy=False, resolution='10', extend_limit=False):
     from numpy import linspace, tile, flipud
@@ -20,7 +21,7 @@ def get_ll(metadata, limit=None, xy=False, resolution='10', extend_limit=False):
     if limit is not None:
         grids, proj4_string = get_sub(metadata, limit)
         if extend_limit is False:
-            sub, p, xrange, yrange = grids[res]['sub'], grids[res]['p'], grids[res]['xrange'], grids[res]['yrange'] 
+            sub, p, xrange, yrange = grids[res]['sub'], grids[res]['p'], grids[res]['xrange'], grids[res]['yrange']
             dims = [sub[2],sub[3]]
         else:
             ## compute full scene lat/lon
@@ -31,20 +32,23 @@ def get_ll(metadata, limit=None, xy=False, resolution='10', extend_limit=False):
             dims = [sub[2],sub[3]]
     else:
         p,grids,proj4_string = get_projection(metadata)
-        xrange, yrange = grids[res]['xrange'], grids[res]['yrange'] 
+        xrange, yrange = grids[res]['xrange'], grids[res]['yrange']
         dims = [metadata["GRIDS"][res]['NCOLS'],metadata["GRIDS"][res]['NROWS']]
-        
 
     # testing 2018 06 06
     midpix = int(int(res)/2)
     xdim =  linspace(xrange[0]+midpix,xrange[1]-midpix,dims[0]).reshape(1,dims[0])
-    ydim =  linspace(yrange[0]+midpix,yrange[1]-midpix,dims[1]).reshape(dims[1],1)
+    #ydim =  linspace(yrange[0]+midpix,yrange[1]-midpix,dims[1]).reshape(dims[1],1)
+
+    ## 2020-07-29
+    ## are we one pixel off in Y?
+    ydim = linspace(yrange[0]-midpix,yrange[1]+midpix,dims[1]).reshape(dims[1],1)
 
     xdim = tile(xdim, (dims[1],1))
     ydim = tile(ydim, (1,dims[0]))
     if limit is not None:
         ydim = flipud(ydim)
-    
+
     if xy:
         return(xdim,ydim)
     else:
