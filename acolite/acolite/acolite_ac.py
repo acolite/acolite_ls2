@@ -1003,10 +1003,6 @@ def acolite_ac(bundle, odir,
                                 azii = abs(tile_angles['SAA'][yi, xi]-tile_angles['VAA'][yi, xi])
                                 while azii>180: azii=abs(azii-180)
                                 metadata_tile['AZI']=azii
-                                print('')
-                                print(metadata_tile['AZI'])
-                                print(metadata_tile['THS'])
-                                print(metadata_tile['THV'])
 
                         ## updated rhod fitting
                         ## Jul 2020
