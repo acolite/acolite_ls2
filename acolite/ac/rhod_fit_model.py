@@ -24,8 +24,8 @@ def rhod_fit_model(rhod, raa, vza, sza,
         res[lutid] = {'tau_all': {},
                       'tau_sel':5.0,
                       'fit_rmsd':5.0,
-                      'band_sel':'',
-                      'band_sel2':''}
+                      'band_sel':list(rhod.keys())[0],
+                      'band_sel2':list(rhod.keys())[0]}
 
         ## compute aot for each band
         for ib, band in enumerate(rhod):
@@ -53,7 +53,7 @@ def rhod_fit_model(rhod, raa, vza, sza,
                 res[lutid]['band_sel2'] = band
 
         #print(lutid, res[lutid]['tau_sel'], res[lutid]['band_sel'], res[lutid]['band_sel2'], '{:.4f}'.format(res[lutid]['fit_rmsd']))
-        
+
         if li == 0:
             sel_model = lutid
             sel_tau = res[lutid]['tau_sel']
