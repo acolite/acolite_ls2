@@ -5,7 +5,7 @@ from acolite import aerlut
 
 from acolite import landsat
 from acolite import sentinel
-from acolite import sentinel3
+#from acolite import sentinel3
 from acolite import dem
 
 from acolite import output
