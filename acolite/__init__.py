@@ -5,6 +5,7 @@ from acolite import aerlut
 
 from acolite import landsat
 from acolite import sentinel
+from acolite import sentinel3
 from acolite import dem
 
 from acolite import output
@@ -30,4 +31,3 @@ for t in config:
     if os.path.exists(config[t]): continue
     tmp = path + os.path.sep + config[t]
     config[t] = os.path.abspath(tmp)
-

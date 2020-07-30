@@ -8,7 +8,7 @@
 ##                2019-03-12 (QV) slightly changed data selection
 ##                2020-06-22 (QV) fixed rdark plotting for "excluded" bands (>1)
 
-def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, ratm_s, rorayl_s, rdark, rdark_sel, dark_spectrum_option, dark_idx, tau550,sel_model_lut_meta, rsky_b):
+def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, ratm_s, rorayl_s, rdark, rdark_sel, dark_spectrum_option, dark_idx, tau550,sel_mod_number, rsky_b):
                 import matplotlib
                 import matplotlib.pyplot as plt
                 from numpy import nan
@@ -93,7 +93,7 @@ def plot_dark_spectrum(metadata, ds_plot, bands, band_names, data_type, waves, r
                 ax.set_ylabel(r'$\rho$')
 
                 ax.set_title('{}/{} {}\n{}'.format(sat, sen, metadata['TIME'].strftime('%Y-%m-%d (%H:%M UTC)'),
-                                               r'$\theta_s$='+ '{:.1f} '.format(metadata['THS'])+ r'$\tau_{a}550$'+'={:.3f} (mod{}, {})'.format(tau550,sel_model_lut_meta['aermod'][0], band_title)))
+                                               r'$\theta_s$='+ '{:.1f} '.format(metadata['THS'])+ r'$\tau_{a}550$'+'={:.3f} (mod{}, {})'.format(tau550,sel_mod_number, band_title)))
                 ax.legend(loc='upper right')
                 canvas.print_figure(ds_plot, dpi=150)
                 plt.close()

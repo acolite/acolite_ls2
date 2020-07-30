@@ -19,3 +19,4 @@ from . import ancillary
 from .rayleigh import *
 from .pressure_elevation import pressure_elevation
 from .rhod_fit_model import rhod_fit_model
+from .rhod_select import rhod_select
