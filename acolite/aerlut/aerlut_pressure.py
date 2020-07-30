@@ -11,6 +11,8 @@ def aerlut_pressure(lut, lutdir, pressure, sensor, rsr_file, lut_data_dict=None)
             from acolite.aerlut import get_sensor_lut
 
             lut_split = lut.split('-')
+            if lut_split[-1] == '1013mb':
+                lut_split = lut_split[0:-1]
 
             ## get bounding LUT pressures
             lut_pressures = [500,1013,1100] ## typical pressure range for about -500 to +5000m elevation
