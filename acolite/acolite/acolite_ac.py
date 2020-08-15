@@ -751,7 +751,7 @@ def acolite_ac(bundle, odir,
                 global_dims = (dims[1], dims[0])
 
             ## python dims are Y,X
-            tile_dims = (dsf_tile_dims[1],dsf_tile_dims[0])
+            tile_dims = (int(dsf_tile_dims[1]),int(dsf_tile_dims[0]))
 
             ## number of tiles
             tiles = [int(ceil(global_dims[0]/tile_dims[0])),int(ceil(global_dims[1]/tile_dims[1]))]
