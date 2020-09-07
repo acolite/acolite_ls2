@@ -91,9 +91,9 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     ## make luts into list if just a string
     for key in setu:
         if key == 'luts':
-            if setu[key] is not list:
+            if not isinstance(setu[key], list):
                 setu[key] = [setu[key]]
-    
+
     ## make gains into list of floats
     for key in setu:
         if 'gains_' in key:
