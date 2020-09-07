@@ -25,6 +25,7 @@
 ##                     2020-02-24 (QV) added output of lat/lon to geotiff
 ##                     2020-03-08 (QV) added lut selection to settings file
 ##                     2020-07-15 (QV) added EarthData login also in processing settings
+##                     2020-09-07 (QV) added single lut option
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -87,6 +88,12 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
     if ('limit' not in setu):
         setu['limit'] = None
 
+    ## make luts into list if just a string
+    for key in setu:
+        if key == 'luts':
+            if setu[key] is not list:
+                setu[key] = [setu[key]]
+    
     ## make gains into list of floats
     for key in setu:
         if 'gains_' in key:
