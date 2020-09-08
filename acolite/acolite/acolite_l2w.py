@@ -55,7 +55,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
     if ("l2r_file" not in gatts) or (len(rhos_waves)==0):
         print('File {} is probably not ACOLITE L2R file.'.format(inputfile))
-                
+
     if parameters is not None:
         l2_flags = None
 
@@ -102,7 +102,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
         ## make outputfile
         if output is not None:
             gatts['output_dir'] = output
-            
+
         ncfile = '{}/{}_L2W.nc'.format(gatts['output_dir'],gatts['output_name'])
         nc_new = True
         gatts["file_type"] =  'Level 2 Water Product'
@@ -128,29 +128,29 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             'a665_qaasw','bbp665_qaasw','kd665_qaasw',
                             'kdpar_qaasw']
                 removed_par.append(par)
-        if len(added_par)>0: 
+        if len(added_par)>0:
             parameters+=added_par
-        if len(removed_par)>0: 
+        if len(removed_par)>0:
             for par in removed_par: parameters.remove(par)
 
-    
+
         ## track whether we ran qaa already
         qaa_computed = False
         qaa_data = {}
-        
+
         ## store read data
         data_read = {}
         att_read = {}
 
         for par in parameters:
-            ## clearing the read data from memory might be needed for large datasets 
-            if not retain_data_read: 
+            ## clearing the read data from memory might be needed for large datasets
+            if not retain_data_read:
                 data_read = {}
                 att_read = {}
 
             ## reset variables
             mask_data = True
-            
+
             req = None
             par_computed = False
             par_exists = False
@@ -169,7 +169,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_exists = True
                 mask_data = True
                 par_split = par_name.split('_')
-                
+
                 if par_split[1] == 'nechad':
                     par_attributes = {'algorithm':'Nechad et al. 2010', 'title':'Nechad SPM'}
                     par_attributes['standard_name']='spm'
@@ -200,7 +200,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         par_attributes['wave']=required_datasets[0].split('_')[1]
 
                     ## test if required datasets are present
-                    if len(required_datasets) > 0: 
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         ## compute dataset
                         if req:
@@ -241,7 +241,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         par_attributes['wave']=required_datasets[0].split('_')[1]
 
                     ## test if required datasets are present
-                    if len(required_datasets) > 0: 
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         ## compute dataset
                         if req:
@@ -259,7 +259,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                            (1.-data_read[required_datasets[0]]/par_attributes['C_SPM'])
             ##### END Nechad SPM
             #################################
-            
+
             #################################
             ## Nechad turbidity
             if par_name[0:8] == 't_nechad':
@@ -351,7 +351,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             continue
 
                     ## test if required datasets are present
-                    if len(required_datasets) > 0: 
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         ## compute dataset
                         if req:
@@ -363,7 +363,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             ## compute turbidity
                             par_data=(par_attributes['A_TUR'] * data_read[required_datasets[0]]) \
                                    / (1.-data_read[required_datasets[0]]/par_attributes['C_TUR'])
-                                
+
                 if par_split[1] == 'nechad2016':
                     par_attributes = {'algorithm':'Nechad et al. 2009, 2016 calibration', 'title':'Nechad TUR'}
                     par_attributes['standard_name']='turbidity'
@@ -391,7 +391,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         par_attributes['wave']=required_datasets[0].split('_')[1]
 
                     ## test if required datasets are present
-                    if len(required_datasets) > 0: 
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         ## compute dataset
                         if req:
@@ -403,7 +403,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 par_attributes['wave']=n['wave']
                                 par_attributes['A_TUR']=n['A']
                                 par_attributes['C_TUR']=n['C']
-                                
+
                             par_data = (par_attributes['A_TUR'] * data_read[required_datasets[0]]) /\
                                        (1.-data_read[required_datasets[0]]/par_attributes['C_TUR'])
             ##### END Nechad T
@@ -438,7 +438,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                      continue
 
                 ## test if required datasets are present
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                     req = l2w_required(inputfile, required_datasets, data_read, att_read)
                     ## compute dataset
                     if req:
@@ -469,11 +469,11 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             ## blend in between
                             sub = where((data_read[required_datasets[0]] < par_attributes['upper_lim']) & \
                                         (data_read[required_datasets[0]] >= par_attributes['lower_lim']))
-                            if len(sub[0]) > 0: 
+                            if len(sub[0]) > 0:
                                 w=(data_read[required_datasets[0]]  - par_attributes['lower_lim']) \
                                          / (par_attributes['upper_lim']-par_attributes['lower_lim'])
                                 par_data[sub] = ((1.-w[sub]) * par_data[sub]) + (w[sub]*par_data_nir[sub])
-                        
+
                         ## individual algorithms
                         if len(par_split) == 3:
                             if par_split[2].lower() == 'red':
@@ -485,7 +485,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         par_data_nir = None
             ##### END Dogliotti T
             #################################
-            
+
             #################################
             ## CHL_OC
             if par_name[0:6] == 'chl_oc':
@@ -502,7 +502,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 ds_waves = [w for w in rhos_waves]
 
                 chl_oc = coef_chl_oc()
-                
+
                 if par_name in chl_oc:
                     blue_wave = chl_oc[par_name]['blue']
                     green_wave = chl_oc[par_name]['green']
@@ -510,16 +510,16 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     chl_ref = chl_oc[par_name]['reference']
                     blue_wave_sel = []
                     green_wave_sel = []
-                    
+
                     for i, reqw in enumerate(blue_wave+green_wave):
                         widx,selwave = closest_idx(ds_waves, reqw)
                         if abs(float(selwave)-float(reqw)) > chl_oc_wl_diff: continue
                         selds='{}_{}'.format(par_attributes['dataset'],selwave)
 
-                        if reqw in blue_wave: 
+                        if reqw in blue_wave:
                             blue_wave_sel.append(selwave)
                             required_datasets.append(selds)
-                        if reqw in green_wave: 
+                        if reqw in green_wave:
                             green_wave_sel.append(selwave)
                             required_datasets.append(selds)
 
@@ -538,9 +538,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     par_data = None
                 else:
                     ## test if required datasets are present
-                    if len(required_datasets) > 0: 
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
-                        
+
                         ## max blue
                         for i,wv in enumerate(blue_wave_sel):
                             cur_tag = 'rhos_{}'.format(wv)
@@ -550,7 +550,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 sub = where((data_read[cur_tag]>blue_rhow) & isfinite(data_read[cur_tag]))
                                 if len(sub[0]) > 0:
                                     blue_rhow[sub]=data_read[cur_tag][sub]
-                                
+
                         ## max green
                         for i,wv in enumerate(green_wave_sel):
                             cur_tag = 'rhos_{}'.format(wv)
@@ -560,7 +560,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 sub = where((data_read[cur_tag]>green_rhow) & isfinite(data_read[cur_tag]))
                                 if len(sub[0]) > 0:
                                     green_rhow[sub]=data_read[cur_tag][sub]
-                                
+
                         ## compute dataset
                         if req:
                             par_data = None
@@ -574,7 +574,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             par_data = power(10, par_data)
             ##### END CHL_OC
             #################################
-            
+
             #################################
             ## CHL RE
             if par_name[0:6] == 'chl_re':
@@ -592,7 +592,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 ds_waves = [w for w in rhos_waves]
 
                 if len(par_split) >= 3:
-                    if par_split[2][0:4] == 'gons': 
+                    if par_split[2][0:4] == 'gons':
                         par_attributes['algorithm']='Gons et al. 3 band'
                         par_attributes['reference']='Gons et al. 2005'
                         gons = coef_chl_re_gons()
@@ -604,7 +604,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                 gons_name = 'chl_re_gons'
                                 req_waves = [gons[gons_name][tag] for tag in ['red_band', 'rededge_band', 'nir_band']]
                             if par_split[2] == 'gons740':
-                                req_waves = [670,705,740]    
+                                req_waves = [670,705,740]
                                 gons_name = 'chl_re_gons740'
                                 req_waves = [gons[gons_name][tag] for tag in ['red_band', 'rededge_band', 'nir_band']]
                         else:
@@ -621,7 +621,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             par_attributes['waves']=req_waves_selected
 
                         ## test if required datasets are present
-                        if len(required_datasets) > 0: 
+                        if len(required_datasets) > 0:
                             req = l2w_required(inputfile, required_datasets, data_read, att_read)
                             ## compute dataset
                             ## put coefficients in external file
@@ -643,18 +643,18 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
                                 gm = gons[gons_name]['validity']
                                 par_data[((data_read[required_datasets[0]] <= gm[0]) | (data_read[required_datasets[1]]/data_read[required_datasets[0]] <= gm[1]))]=nan
-                                
+
                     if par_split[2][0:5] == 'moses':
                         par_attributes['reference']='Moses et al. 2012'
                         par_attributes['algorithm']='Moses et al. 3 band'
                         par_attributes['a']=(232.29,23.173) ## put coefficients in external file
-                                                    
+
                         ### get required datasets
                         if gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
                             if par_split[2] == 'moses3b':
                                 req_waves = [670,705,780]
                             if par_split[2] == 'moses3b740':
-                                req_waves = [670,705,740]    
+                                req_waves = [670,705,740]
                         else:
                             print('Parameter {} not configured for {}.'.format(par_name,gatts['sensor']))
                             continue
@@ -669,20 +669,20 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             par_attributes['waves']=req_waves_selected
 
                         ## test if required datasets are present
-                        if len(required_datasets) > 0: 
+                        if len(required_datasets) > 0:
                             req = l2w_required(inputfile, required_datasets, data_read, att_read)
                             ## compute dataset
                             if req:
                                 par_data = par_attributes['a'][0]* \
                                         ((power(data_read[required_datasets[0]],-1)-power(data_read[required_datasets[1]],-1)) * \
                                         data_read[required_datasets[2]]) + par_attributes['a'][1]
-                                par_data[par_data<0]=nan  
-                                
-                    if par_split[2][0:6] == 'mishra': 
+                                par_data[par_data<0]=nan
+
+                    if par_split[2][0:6] == 'mishra':
                         par_attributes['reference']='Mishra et al. 2014'
                         par_attributes['algorithm']='Mishra et al. 2014, NDCI'
                         par_attributes['a']=(14.039, 86.115, 194.325) ## put coefficients in external file
-                        
+
                         ### get required datasets
                         if gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
                             req_waves = [670,705]
@@ -700,7 +700,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             par_attributes['waves']=req_waves_selected
 
                         ## test if required datasets are present
-                        if len(required_datasets) > 0: 
+                        if len(required_datasets) > 0:
                             req = l2w_required(inputfile, required_datasets, data_read, att_read)
                             ## compute dataset
                             if req:
@@ -708,10 +708,47 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                        (data_read[required_datasets[1]]+data_read[required_datasets[0]])
                                 par_data = par_attributes['a'][0] + par_attributes['a'][1]*ndci + par_attributes['a'][2]*ndci*ndci
                                 ndci = None
-                                par_data[par_data<0]=nan  
+                                par_data[par_data<0]=nan
+
+                    if par_split[2][0:7] == 'bramich':
+                        par_attributes['reference']='Bramich et al. 2021'
+                        par_attributes['algorithm']='Bramich et al. 2021'
+
+                        ### get required datasets
+                        if gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
+                            req_waves = [670,705,780]
+                        else:
+                            print('Parameter {} not configured for {}.'.format(par_name,gatts['sensor']))
+                            continue
+
+                        if len(req_waves) > 0:
+                            for i, reqw in enumerate(req_waves):
+                                widx,selwave = closest_idx(ds_waves, reqw)
+                                if abs(float(selwave)-float(reqw)) > 10: continue
+                                selds='{}_{}'.format(par_attributes['dataset'],selwave)
+                                required_datasets.append(selds)
+                                req_waves_selected.append(selwave)
+                            par_attributes['waves']=req_waves_selected
+
+                        ## test if required datasets are present
+                        if len(required_datasets) > 0:
+                            req = l2w_required(inputfile, required_datasets, data_read, att_read)
+                            ## compute dataset
+                            ## put coefficients in external file
+                            if req:
+                                ## same as gons
+                                bb = (1.61 * data_read[required_datasets[2]]) \
+                                      / (0.082 - 0.6 * data_read[required_datasets[2]])
+                                rm = data_read[required_datasets[1]]/data_read[required_datasets[0]]
+                                par_data = ((rm * (0.7 + bb)) - 0.40 - power(bb,1.05))
+                                ## from eq 12 in Bramich 2021
+                                #par_data = power(par_data/0.022,1.201)
+                                ## from Bramich via RG
+                                par_data = power(par_data,1.1675)/0.0109
+                                par_data[par_data<0]=nan
             ##### END CHL_RE
             #################################
-            
+
             #################################
             ## NDCI
             if par_name[0:4] == 'ndci':
@@ -726,7 +763,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
                 req_waves,req_waves_selected = [],[]
                 ds_waves = [w for w in rhos_waves]
-                
+
                 ### get required datasets
                 if gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
                     req_waves = [670,705]
@@ -742,9 +779,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         required_datasets.append(selds)
                         req_waves_selected.append(selwave)
                     par_attributes['waves']=req_waves_selected
-                    
+
                 ## test if required datasets are present
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                     req = l2w_required(inputfile, required_datasets, data_read, att_read)
                     ## compute dataset
                     if req:
@@ -766,7 +803,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['algorithm']=''
 
                 req_waves,req_waves_selected = [],[]
-                ds_waves = [w for w in rhos_waves] 
+                ds_waves = [w for w in rhos_waves]
 
                 ### get required datasets
                 if gatts['sensor'] in ['S2A_MSI', 'S2B_MSI']:
@@ -783,23 +820,23 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         required_datasets.append(selds)
                         req_waves_selected.append(selwave)
                     par_attributes['waves']=req_waves_selected
-                    
+
                 ## test if required datasets are present
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                     req = l2w_required(inputfile, required_datasets, data_read, att_read)
                     ## compute dataset
                     if req:
                         slh_waves = [float(ds.split('_')[1]) for ds in required_datasets]
                         ratio = (data_read[required_datasets[2]]-data_read[required_datasets[0]]) / \
                                 (slh_waves[2]+slh_waves[0])
-                                
+
                         par_data = data_read[required_datasets[1]] - \
                                     (data_read[required_datasets[0]] + (ratio)*(slh_waves[1]+slh_waves[0]))
                         ratio = None
             ##### END SLH
             #################################
 
-            
+
             #################################
             ## QAA
             if 'qaa' in par_name:
@@ -815,7 +852,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
                 if not qaa_computed:
                     req_waves,req_waves_selected = [],[]
-                    ds_waves = [w for w in rhos_waves] 
+                    ds_waves = [w for w in rhos_waves]
 
                     ### get required datasets
                     if gatts['sensor'] in ['L8_OLI','S2A_MSI', 'S2B_MSI']:
@@ -831,18 +868,18 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         required_datasets.append(selds)
                         req_waves_selected.append(selwave)
                     par_attributes['waves']=req_waves_selected
-                    
-                    if len(required_datasets) > 0: 
+
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         #return(data_read, par_attributes)
                         if req:
                             qaa_data = acolite_l2w_qaa(data_read,par_attributes,satellite=gatts['sensor'],ths=gatts['THS'])
                             qaa_computed = True
-            
+
                 #print(qaa_data.keys())
                 ## get parameter from qaa outputs
                 for k in qaa_data.keys():
-                    if k.lower() == par_name: 
+                    if k.lower() == par_name:
                         par_data = qaa_data[k]
             ##### END QAA
             #################################
@@ -861,14 +898,14 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['algorithm']=''
 
                 req_waves,req_waves_selected = [],[]
-                ds_waves = [w for w in rhos_waves] 
+                ds_waves = [w for w in rhos_waves]
 
-                if par_name=='fai_rhot': 
+                if par_name=='fai_rhot':
                     par_attributes['dataset']='rhot'
                     ds_waves = [w for w in rhot_waves]
-                    
+
                 fai_diff = [10, 30, 80]
-                req_waves = [660,865,1610]                
+                req_waves = [660,865,1610]
                 for i, reqw in enumerate(req_waves):
                     widx,selwave = closest_idx(ds_waves, reqw)
                     if abs(float(selwave)-float(reqw)) > fai_diff[i]: continue
@@ -877,8 +914,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     req_waves_selected.append(selwave)
                 par_attributes['waves']=req_waves_selected
 
-                if len(required_datasets) == len(req_waves): 
-                    req = l2w_required(inputfile, required_datasets, data_read, att_read)                            
+                if len(required_datasets) == len(req_waves):
+                    req = l2w_required(inputfile, required_datasets, data_read, att_read)
                     ## compute dataset
                     if req:
                         par_data = None
@@ -905,7 +942,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['algorithm']=''
 
                 req_waves,req_waves_selected = [],[]
-                ds_waves = [w for w in rhos_waves] 
+                ds_waves = [w for w in rhos_waves]
 
                 ## read FAIT config
                 fait_cfg = ac.shared.import_config('{}/Shared/dogliotti_fait.cfg'.format(ac.config['pp_data_dir']))
@@ -931,7 +968,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['a_threshold'] = fait_a_threshold
 
                 fai_diff = [10, 10, 10, 30, 80]
-                req_waves = [490, 560, 660, 865, 1610]                
+                req_waves = [490, 560, 660, 865, 1610]
                 for i, reqw in enumerate(req_waves):
                     widx,selwave = closest_idx(ds_waves, reqw)
                     if abs(float(selwave)-float(reqw)) > fai_diff[i]: continue
@@ -940,8 +977,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     req_waves_selected.append(selwave)
                 par_attributes['waves']=req_waves_selected
 
-                if len(required_datasets) == len(req_waves): 
-                    req = l2w_required(inputfile, required_datasets, data_read, att_read)                            
+                if len(required_datasets) == len(req_waves):
+                    req = l2w_required(inputfile, required_datasets, data_read, att_read)
                     ## compute dataset
                     if req:
                         par_data = None
@@ -992,9 +1029,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['algorithm']=''
 
                 req_waves,req_waves_selected = [],[]
-                ds_waves = [w for w in rhos_waves] 
+                ds_waves = [w for w in rhos_waves]
 
-                if par_name=='ndvi_rhot': 
+                if par_name=='ndvi_rhot':
                     par_attributes['dataset']='rhot'
                     ds_waves = [w for w in rhot_waves]
 
@@ -1004,7 +1041,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 else:
                     req_waves = [660,865]
                 req_waves_selected = []
-                
+
                 for i, reqw in enumerate(req_waves):
                     widx,selwave = closest_idx(ds_waves, reqw)
                     if abs(float(selwave)-float(reqw)) > 20: continue
@@ -1013,8 +1050,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     req_waves_selected.append(selwave)
                 par_attributes['waves']=req_waves_selected
 
-                if len(required_datasets) > 0: 
-                    req = l2w_required(inputfile, required_datasets, data_read, att_read)                     
+                if len(required_datasets) > 0:
+                    req = l2w_required(inputfile, required_datasets, data_read, att_read)
                     ## compute dataset
                     if req:
                         par_data = None
@@ -1022,7 +1059,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                                    (data_read[required_datasets[1]]+data_read[required_datasets[0]])
             ##### END NDVI
             #################################
-            
+
             #################################
             ## rhow
             if par_name[0:4] == 'rhow':
@@ -1037,7 +1074,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['algorithm']=''
 
                 required_datasets = ['rhos_{}'.format(par_split[1])]
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         ## compute dataset
                         if req:
@@ -1063,7 +1100,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['algorithm']=''
 
                 required_datasets = ['rhos_{}'.format(par_split[1])]
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         ## compute dataset
                         if req:
@@ -1090,8 +1127,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
                 if not qaa_computed:
                     req_waves,req_waves_selected = [],[]
-                    ds_waves = [w for w in rhos_waves] 
-                    
+                    ds_waves = [w for w in rhos_waves]
+
                     hue_coeff = coef_hue_angle()
 
                     ### get required datasets
@@ -1109,8 +1146,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                         required_datasets.append(selds)
                         req_waves_selected.append(selwave)
                     par_attributes['waves']=req_waves_selected
-                    
-                    if len(required_datasets) > 0: 
+
+                    if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
                         if req:
                             yw = 1/3.
@@ -1132,7 +1169,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             x = X/den
                             y = Y/den
                             den = None
-    
+
                             ## calculate alpha
                             alpha = mod(arctan2(y-yw, x-xw),2* pi)
                             x,y = None, None
@@ -1169,9 +1206,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                     req_waves = [561,613,655]
                     required_datasets = ['rhos_{}'.format(w) for w in req_waves]
 
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
-                                                        
+
                         ## compute dataset
                         if req:
                             ow = (float(req_waves[2])-req_waves[1])/(float(req_waves[2])-float(req_waves[0]))
@@ -1195,23 +1232,23 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['reference']=''
                 par_attributes['algorithm']=''
 
-                if len(required_datasets) > 0: 
+                if len(required_datasets) > 0:
                         req = l2w_required(inputfile, required_datasets, data_read, att_read)
-                                                        
+
                         ## compute dataset
                         if req:
                             par_data = None
             ##### END sample
             #################################
-            
+
             ## copy requested L2R variables
             if (par_data is None) and (par_name in l2r_datasets):
-                if par_name in data_read: 
+                if par_name in data_read:
                     par_data = data_read[par_name]
                     par_attributes = att_read[par_name]
-                else: 
+                else:
                     par_data,par_attributes = nc_data(inputfile, par_name, attributes=True)
-                if (par_name in ['bt10','bt11', 'lt10', 'lt11']) | ('rhot_' in par_name) | ('rhos_' in par_name) | ('rhorc_' in par_name) : 
+                if (par_name in ['bt10','bt11', 'lt10', 'lt11']) | ('rhot_' in par_name) | ('rhos_' in par_name) | ('rhorc_' in par_name) :
                     mask_data = False
             ##
             if par_data is not None:
@@ -1219,9 +1256,9 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
             ## if this parameter does not exist
             if not par_computed:
-                if not par_exists: 
+                if not par_exists:
                     print('Parameter {} not configured.'.format(par))
-                else: 
+                else:
                     print('Parameter {} not computed for {}.'.format(par, inputfile))
                     if req is False: print('Required datasets for parameter {} are not in file'.format(par_name))
                 continue
@@ -1240,7 +1277,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 ## write easting and northing if requested
                 if 'x' in l2r_datasets: nc_write(ncfile, 'x', nc_data(inputfile, 'x'))
                 if 'y' in l2r_datasets: nc_write(ncfile, 'y', nc_data(inputfile, 'y'))
-                
+
                 ## write flags
                 if l2_flags is not None:
                     #ds_atts = {'flag_masks':'', 'flag_meanings':''}
@@ -1255,7 +1292,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
 
             ## integerize reflectance products
             if (rho_as_int) & ((par[0:3] == 'rho') | (par[0:3] == 'Rrs')):
-                import numpy as np                
+                import numpy as np
                 rscale = np.float32(rho_scale_factor)
                 roffset = np.float32(rho_add_offset)
 
@@ -1274,9 +1311,8 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['_FillValue']=np.int16(-32767)
                 par_data[tmp_mask]=par_attributes['_FillValue']
                 tmp_mask = None
-                
+
             ## write dataset to NetCDF
             nc_write(ncfile, par_name, par_data, dataset_attributes=par_attributes)
             nc_new=False
     return(ncfile)
-
