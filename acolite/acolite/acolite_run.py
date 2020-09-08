@@ -226,6 +226,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         dsf_wave_range=[float(setu['dsf_wave_range'][0]), float(setu['dsf_wave_range'][1])],
                                                         dsf_exclude_bands=setu['dsf_exclude_bands'],
                                                         extra_ac_parameters=setu['extra_ac_parameters'],
+                                                        dsf_fixed_aot=setu['dsf_fixed_aot'],
+                                                        dsf_fixed_lut=setu['dsf_fixed_lut'],
 
                                                         ## for exponential
                                                         exp_swir_threshold=float(setu['exp_swir_threshold']),

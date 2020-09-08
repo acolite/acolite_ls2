@@ -79,8 +79,6 @@ def acolite_ac(bundle, odir,
                 perc_idx=1,
                 percentiles = [0,0.1,1,5,10,25,50,75,90,95,99,99.9,100],
                 luts=['PONDER-LUT-201704-MOD1', 'PONDER-LUT-201704-MOD2'],#, 'PONDER-LUT-201704-MOD3-1013mb'],
-                #fixed_aot550=None,
-                fixed_lut='PONDER-LUT-201704-MOD2',
                 bestfit='bands',
                 bestfit_bands=None,
                 pixel_range_min=0,
@@ -103,6 +101,9 @@ def acolite_ac(bundle, odir,
                 dsf_wave_range = [400,2500],
                 dsf_exclude_bands = [],
                 extra_ac_parameters=False,
+
+                dsf_fixed_aot=None,
+                dsf_fixed_lut='PONDER-LUT-201704-MOD2',
 
                 ## ACOLITE exponential settings
                 exp_swir_threshold = 0.0215, ## swir non water mask
@@ -1250,15 +1251,19 @@ def acolite_ac(bundle, odir,
 
                 ## new fitting 20200729
                 if True:
-                    ## do rdark selection
-                    rdark_sel = pp.ac.rhod_select(rdark, rdark_list_selection=dsf_list_selection)
-
                     raa = attributes['AZI']
                     vza = attributes['THV']
                     sza = attributes['THS']
+                    ## do rdark selection
+                    rdark_sel = pp.ac.rhod_select(rdark, rdark_list_selection=dsf_list_selection)
 
-                    fit_res = pp.ac.rhod_fit_model(rdark_sel, raa, vza, sza, fit_tag=fit_tag, pressure = pressure, lutd=lutd)
-                    sel_mod, tau550, res = fit_res
+                    if dsf_fixed_aot is None:
+                        fit_res = pp.ac.rhod_fit_model(rdark_sel, raa, vza, sza, fit_tag=fit_tag, pressure = pressure, lutd=lutd)
+                        sel_mod, tau550, res = fit_res
+                    else:
+                        sel_mod, tau550 = dsf_fixed_lut.strip(), float(dsf_fixed_aot)
+                        res =  {sel_mod : {'fit_rmsd': np.nan, 'band_sel':'None', 'band_sel2':'None'}}
+
                     attributes['ac_model'] = sel_mod
                     attributes['ac_aot550'] = tau550
                     attributes['ac_rmsd'] = res[sel_mod]['fit_rmsd']

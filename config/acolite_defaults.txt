@@ -58,6 +58,10 @@ dsf_wave_range=400,2500
 dsf_exclude_bands=,
 extra_ac_parameters=False
 
+## fixed aot option
+dsf_fixed_aot=None
+dsf_fixed_lut=PONDER-LUT-201704-MOD2
+
 ## exponential options
 exp_swir_threshold=0.0215
 exp_fixed_epsilon=True
