@@ -4,3 +4,4 @@ from .ancillary_interp_met import ancillary_interp_met
 from .ancillary_interp_ozone import ancillary_interp_ozone
 from .ancillary_list import ancillary_list
 
+from .cams_read_grib import cams_read_grib

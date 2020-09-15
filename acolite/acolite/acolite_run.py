@@ -190,6 +190,7 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
 
                                                         ## generic settings
                                                         ancillary_data=setu['ancillary_data'],
+                                                        cams_grib_ancillary=setu['cams_grib_ancillary'],
                                                         gas_transmittance=setu['gas_transmittance'],
                                                         uoz_default=float(setu['uoz_default']),
                                                         uwv_default=float(setu['uwv_default']),

@@ -57,6 +57,7 @@
 ##                2020-07-15 (QV) commented out r_ray TOA masking, LUT reading changes, added some geometry for NetCDF processing
 ##                2020-07-29 (QV) massive cleanup started and new fitting procedure done for fixed DSF
 ##                2020-07-30 (QV) more cleaning and new fitting done for tiled DSF
+##                2020-09-15 (QV) added CAMS grib ancillary data support (when the file is provided externally)
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -151,6 +152,7 @@ def acolite_ac(bundle, odir,
 
                 ## use ancillary data for gas transmittances rather than defaults
                 ancillary_data = True,
+                cams_grib_ancillary = None,
 
                 ## do sky glint correction
                 sky_correction = False,
@@ -595,11 +597,23 @@ def acolite_ac(bundle, odir,
             pc_lat=lat[int(lat.shape[0]/2), int(lat.shape[1]/2)]
             pc_date = metadata['TIME'].strftime('%Y-%m-%d')
             pc_time=metadata['TIME'].hour + metadata['TIME'].minute/60. + metadata['TIME'].second/3600.
-            try:
-                pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest', verbosity=verbosity)
-            except:
-                pc_anc = {}
-                print('Could not retrieve ancillary data, proceeding with default values.')
+
+            ## use default NASA ancillary data
+            if cams_grib_ancillary is None:
+                try:
+                    pc_anc = pp.ac.ancillary.ancillary_get(pc_date, pc_lon, pc_lat, ftime=pc_time, kind='nearest', verbosity=verbosity)
+                except:
+                    pc_anc = {}
+                    print('Could not retrieve ancillary data, proceeding with default values.')
+            else:
+                print('Using CAMS grib data: {}'.format(cams_grib_ancillary))
+                ## read cams grib ancillary
+                pc_anc = pp.ac.ancillary.cams_read_grib(cams_grib_ancillary, pc_date, pc_lon, pc_lat, ftime=pc_time,
+                                   spatial_selection = 'interpolated', verbosity = verbosity)
+                print(pc_lon, pc_lat, pc_date, pc_time)
+                print(pc_anc)
+                #pc_anc = {'ozone':{'interp':0.3}, 'press':{'interp':1013}, 'p_water':{'interp':1.5}}
+                #print('Using fake grib data')
 
             ## get pressure from ancillary data if not determined by user or by DEM
             if (pressure == None) & (lut_pressure):
