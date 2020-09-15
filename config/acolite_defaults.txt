@@ -29,6 +29,7 @@ elevation=None
 lut_pressure=True
 dem_pressure=False
 dem_pressure_percentile=25
+cams_grib_ancillary=None
 
 ##
 sky_correction=True
