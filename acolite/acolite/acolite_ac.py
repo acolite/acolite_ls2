@@ -610,10 +610,6 @@ def acolite_ac(bundle, odir,
                 ## read cams grib ancillary
                 pc_anc = pp.ac.ancillary.cams_read_grib(cams_grib_ancillary, pc_date, pc_lon, pc_lat, ftime=pc_time,
                                    spatial_selection = 'interpolated', verbosity = verbosity)
-                print(pc_lon, pc_lat, pc_date, pc_time)
-                print(pc_anc)
-                #pc_anc = {'ozone':{'interp':0.3}, 'press':{'interp':1013}, 'p_water':{'interp':1.5}}
-                #print('Using fake grib data')
 
             ## get pressure from ancillary data if not determined by user or by DEM
             if (pressure == None) & (lut_pressure):
