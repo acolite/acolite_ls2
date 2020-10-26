@@ -9,19 +9,20 @@
 ##                2018-04-17 (QV) functionized, added cmap keyword
 ##                2018-04-18 (QV) new lat/lon step determination, "ideal" number of ticks
 ##                2018-07-18 (QV) changed acolite import name
+##                2020-10-26 (QV) fixed order of plotting ticks and labeling them
 
-def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None, 
+def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
          colorbar_edge=True, colorbar = "horizontal", cbsize='3%', cbpad=0.5, cmap=None,
-         limit=None, 
+         limit=None,
          scalebar=False, scalepos='UR', scalelen=None, scalecolor='Black', map_fillcolor='White',
-         points=None, axes_linewidth=2, 
+         points=None, axes_linewidth=2,
          range=None, label='', rescale=1., log=False,
          max_edge_tick=(0.33,0.25), max_scale_frac=0.33, verbose=False, geo_minticks=2, geo_maxticks=5,
          title=None, projection='tmerc', dpi=72, **kwargs):
-    
+
     import time
     from acolite.shared import distance_in_ll, read_points, scale_dist
-    
+
     def getstep(drange):
         dstep = 0.005
         if drange > 0.02: dstep=0.01
@@ -39,32 +40,32 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         idmax, ntmax = closest_idx(numb, maxt)
         idmin, ntmin = closest_idx(numb, mint)
         return(steps[idmin],steps[idmax])
-   
+
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     from mpl_toolkits.basemap import Basemap
     import matplotlib.text
     import matplotlib.pyplot as plt
     import matplotlib.cm as cm
- 
+
     import pyproj
     from numpy.ma import masked_where
     from numpy import loadtxt, insert, arange
-    
-    if len(data.shape) is 2:
-        y_size, x_size = data.shape 
-    if len(data.shape) is 3:
-        y_size, x_size, z_size = data.shape 
-        
+
+    if len(data.shape) == 2:
+        y_size, x_size = data.shape
+    if len(data.shape) == 3:
+        y_size, x_size, z_size = data.shape
+
     x_size_r = x_size * rescale
     y_size_r = y_size * rescale
-    
+
     #x0, y0, x1, y1
     plot_window = [0.,0.,1.,1.]
-    
+
     ## these should be the approximate borders to the plot area
     border_y = [70, 120]
     border_x = [150, 100]
-    
+
     ## add some space for the colorbar
     ## add to border_x and _y
     if (colorbar_edge):
@@ -80,25 +81,25 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
             border_x[0] += 0
             border_x[1] += 25
 
-        
+
     ## testing output shape
     if True:
         figsize = [x_size_r / dpi, y_size_r / dpi]
-                
+
         border_y0 = border_y[0]/dpi
         border_y1 = border_y[1]/dpi
         figsize[1] += border_y0 + border_y1
         plot_window[1] = border_y0/figsize[1]
         plot_window[3] = 1-(border_y1/figsize[1])
-        
+
         border_x0 = border_x[0]/dpi
         border_x1 = border_x[1]/dpi
         figsize[0] += border_x0 + border_x1
         plot_window[0] = border_x0/figsize[0]
         plot_window[2] = 1-(border_x1/figsize[0])
-                
-    if limit is not None:            
-        if len(limit) is 4:
+
+    if limit is not None:
+        if len(limit) == 4:
             lonw, lone = limit[1],limit[3]
             lats, latn = limit[0],limit[2]
     else:
@@ -109,17 +110,17 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
 
     lonm = (lonw+lone)/2
     latm = (lats+latn)/2
-    
+
     fig = plt.figure(figsize=figsize)
     ax = fig.add_axes(plot_window,zorder=20)
-    
+
     ## set axis thickness
     for axis in ['top','bottom','left','right']:
       ax.spines[axis].set_linewidth(axes_linewidth)
 
     fig.patch.set_facecolor('white')
     fig.patch.set_alpha(1.0)
-    
+
     lonrange = abs(lonw-lone)
     latrange = abs(latn-lats)
     t0 = time.time()
@@ -152,7 +153,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         m = kwargs['m']
     t1 = time.time()
     if verbose: print('set up basemap {:.2f} sec'.format(t1-t0))
-    
+
     # transform coordinates from lat/lon to map coordinates
     if ('xx' not in kwargs) | ('yy' not in kwargs):
         xx, yy = m(lon, lat)
@@ -160,7 +161,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         xx, yy = kwargs['xx'], kwargs['yy']
     t2 = time.time()
     if verbose: print('set up xx yy {:.2f} sec'.format(t2-t1))
-    
+
     ## get LL, UR corners
     xll, yll = m(lonw,lats)
     xur, yur = m(lone,latn)
@@ -169,7 +170,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
     yd = yur-yll
 
     ## different treatment of 2D and 3D arrays (maps and rgbs)
-    if len(data.shape) is 2:
+    if len(data.shape) == 2:
         # load colormap
         from matplotlib.colors import ListedColormap
         if cmap == None:
@@ -181,7 +182,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         cmap.set_bad(map_fillcolor)
         cmap.set_under(map_fillcolor)
 
-        if len(range) != 2: 
+        if len(range) != 2:
             from numpy import nanpercentile
             range = nanpercentile(data, (10,90))
 
@@ -190,18 +191,22 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
             norm = LogNorm(vmin=range[0], vmax=range[1])
         else:
             norm = None
+            from matplotlib.colors import Normalize
+            norm = Normalize(vmin=range[0], vmax=range[1])
 
         if mask is None:
-            img=m.pcolormesh(xx, yy, data, cmap=cmap, norm=norm, vmin=range[0], vmax=range[1]) #zorder=15, 
+            #img=m.pcolormesh(xx, yy, data, cmap=cmap, norm=norm, vmin=range[0], vmax=range[1]) #zorder=15,
+            img=m.pcolormesh(xx, yy, data, cmap=cmap, norm=norm, shading='auto')
         else:
-            img=m.pcolormesh(xx, yy, masked_where(mask,data), cmap=cmap, norm=norm, vmin=range[0], vmax=range[1])#zorder=15, 
+            #img=m.pcolormesh(xx, yy, masked_where(mask,data), cmap=cmap, norm=norm, vmin=range[0], vmax=range[1])#zorder=15,
+            img=m.pcolormesh(xx, yy, masked_where(mask,data), cmap=cmap, norm=norm, shading='auto')
 
     ## rgb colorTuple takes a bit longer
-    if len(data.shape) is 3:
+    if len(data.shape) == 3:
         mesh_rgb = data[:, :-1, :]
         colorTuple = mesh_rgb.reshape((mesh_rgb.shape[0] * mesh_rgb.shape[1]), 3)
         colorTuple = insert(colorTuple,3,1.0,axis=1)
-        img = m.pcolormesh(xx, yy, data[:,:,0], latlon=False,color=colorTuple)
+        img = m.pcolormesh(xx, yy, data[:,:,0], latlon=False,color=colorTuple, shading='flat')
 
     t3 = time.time()
     if verbose: print('set up colormesh {:.2f} sec'.format(t3-t2))
@@ -224,7 +229,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         parallels = parallels[(parallels >= lats) & (parallels <= latn)]
         parallels = [pl for pl in parallels if (abs(pl-lats) > latedge) & (abs(pl-latn) > latedge)]
         if len(parallels) >= geo_minticks: break
-            
+
 
     flon = (len(str(lonstep))-2)
     xtl,xtv=[],[]
@@ -232,8 +237,8 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         xs, ys = m(mr,lats)
         xtl.append(('{'+':.{}'.format(flon)+'f}'+'°{}').format(abs(mr), 'E' if mr >=0 else 'W'))
         xtv.append(xs)
-    ax.set_xticklabels(xtl)
     ax.set_xticks(xtv)
+    ax.set_xticklabels(xtl)
 
     flat = (len(str(latstep))-2)
     ytl,ytv=[],[]
@@ -241,8 +246,8 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         xs, ys = m(lonw,pl)
         ytl.append(('{'+':.{}'.format(flat)+'f}'+'°{}').format(abs(pl), 'N' if pl >=0 else 'S'))
         ytv.append(ys)
-    ax.set_yticklabels(ytl)
     ax.set_yticks(ytv)
+    ax.set_yticklabels(ytl)
 
     t4 = time.time()
     if verbose: print('draw grid {:.2f} sec'.format(t4-t3))
@@ -252,18 +257,18 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
             if scalepos not in ['UR','UL','LL','LR']:
                 print('Scalepos {} not recognised. Using default.'.format(scalepos))
                 scalepos = 'UR'
-                
+
             xlab_pix, ylab_pix = 100, 125
             ylab_off = (20/(figsize[1]*dpi))
 
             pos = {}
-            
+
             pos['Upper'] = 1. - (ylab_pix/(figsize[1]*dpi))
             pos['Lower'] = (ylab_pix/(figsize[1]*dpi))
-            
+
             pos['Right'] = 1. - (xlab_pix/(figsize[0]*dpi))
             pos['Left'] = (xlab_pix/(figsize[0]*dpi))
-            
+
 
             if scalepos[0]=='U':
                 latsc = lats+abs(latn-lats)*pos['Upper'] #0.87
@@ -275,7 +280,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
             if scalepos[1]=='L':
                 lonsc = lonw+abs(lone-lonw)*pos['Left'] #0.08
                 scale_sign=1.
-            
+
             ## length of the scalebar in degrees
             dist = distance_in_ll(latm)[0]
             if scalelen is None:
@@ -311,11 +316,11 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
                 sclabel = '{} {}'.format(r'$\pi$', unit)
             # label offset from scale bar
             sc_l_off = yd * ylab_off
-            plt.text(xs+(xse-xs)/2, ys+sc_l_off, sclabel, color=scalecolor, zorder=17, 
+            plt.text(xs+(xse-xs)/2, ys+sc_l_off, sclabel, color=scalecolor, zorder=17,
                                                  horizontalalignment='center', fontsize=fz)
     ##### end scale bar
-    
-            
+
+
     ## plot provided points
     if points is not None:
         if type(points) is str:
@@ -330,13 +335,13 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
             cl = 'Black' if 'color' not in p else p['color']
             lb = None if 'label' not in p else p['label']
             fz = 14 if 'label_size' not in p else p['label_size']
-            
+
             xp, yp = m(p['lon'], p['lat'])
             plt.plot(xp, yp, sm, color=cl, zorder=17)
-        
+
             label_side = 'right' if 'label_side' not in p else p['label_side']
             va = 'center' if 'va' not in p else p['va']
-            
+
             ## offset for labels
             h_l_off = xd * 0.025
             v_l_off = yd * 0.035
@@ -357,14 +362,14 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
                 xpt, ypt = xp*1, yp-v_l_off
                 ha = 'center' if 'ha' not in p else p['ha']
 
-            plt.text(xpt, ypt, lb, color=cl, zorder=17, 
-                     horizontalalignment=ha, 
+            plt.text(xpt, ypt, lb, color=cl, zorder=17,
+                     horizontalalignment=ha,
                      verticalalignment=va, fontsize=fz)
 
     if title is not None:
         plt.title(title)
 
-    ## make room for colorbar and plot if 2D dataset    
+    ## make room for colorbar and plot if 2D dataset
     divider = make_axes_locatable(ax)
     if colorbar_edge:
         if colorbar == "horizontal":
@@ -375,10 +380,10 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
             orientation='vertical'
 
 
-        if len(data.shape) is 2:
+        if len(data.shape) == 2:
             cbar = plt.colorbar(img, cax=cax, orientation=orientation)
             cbar.set_label(label=label)
-        else: 
+        else:
             cax.axis('off')
     else:
         pad = [0.1,0.1,0.1,0.3]
@@ -386,7 +391,7 @@ def qmap(data,lon,lat, mask=None, outputfile=None, mscale=None,
         for si, side in enumerate(['bottom','top','left', 'right']):
             cax = divider.append_axes(side, size='1%', pad=pad[si])
             cax.axis('off')
-            
+
     if outputfile is None:
         plt.show()
     else:
