@@ -33,7 +33,8 @@ cams_grib_ancillary=None
 
 ##
 sky_correction=True
-sky_correction_option=all
+#sky_correction_option=all
+sky_correction_option=rsky_new
 
 ## glint correction
 glint_correction=False
@@ -55,7 +56,8 @@ dsf_min_tile_aot=0.01
 dsf_plot_retrieved_tiles=True
 dsf_plot_dark_spectrum=True
 dsf_write_tiled_parameters=False
-dsf_wave_range=400,2500
+#dsf_wave_range=400,2500
+dsf_wave_range=400,900
 dsf_exclude_bands=,
 extra_ac_parameters=False
 

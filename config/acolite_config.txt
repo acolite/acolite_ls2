@@ -1,5 +1,5 @@
 ## ACOLITE
-version=20190326.0
+version=20201027.0
 acolite_defaults=config/acolite_defaults.txt
 acolite_l2w_labels=config/acolite_l2w_labels.txt
 

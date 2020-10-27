@@ -248,7 +248,7 @@ def acolite_gui(*args, version=None):
             ####
 
             ### copyright label
-            l = tk.Label(self, text='(c) 2014-2019 RBINS')
+            l = tk.Label(self, text='(c) 2014-2020 RBINS')
             l.grid(row=7, column=0, sticky='e')
             ###
 
