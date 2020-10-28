@@ -19,7 +19,7 @@ def safe_tile_grid(dom):
     ## make array of values
     nx, ny = len(values), len(values[0])
     arr =  zeros((nx,ny))
-    for i in range(nx): 
+    for i in range(nx):
         for j in range(ny):
             arr[i,j] = values[i][j]
     return(arr)

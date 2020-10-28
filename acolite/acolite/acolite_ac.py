@@ -58,6 +58,7 @@
 ##                2020-07-29 (QV) massive cleanup started and new fitting procedure done for fixed DSF
 ##                2020-07-30 (QV) more cleaning and new fitting done for tiled DSF
 ##                2020-09-15 (QV) added CAMS grib ancillary data support (when the file is provided externally)
+##                2020-10-28 (QV) fixed issue with tiled glint correction with resolved angles (S2)
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -778,6 +779,8 @@ def acolite_ac(bundle, odir,
                 ac_pars = ['romix','rorayl','dtotr','utotr',
                            'dtott','utott','astot', 'ttot']
                 if extra_ac_parameters: ac_pars = lutd[luts[0]]['meta']['par']
+                if (sky_correction) & (sky_correction_option == 'rsky_new'): ac_pars += ['rsky_t']
+
                 if (data_type == 'Sentinel'):
                     tp_dim = grmeta['VIEW']['Average_View_Zenith'].shape
                     ## setup interpolation grid here
@@ -794,6 +797,7 @@ def acolite_ac(bundle, odir,
                         sunai = interp2d(txg, tyg, grmeta['SUN']['Azimuth'])
                         senzi = interp2d(txg, tyg, grmeta['VIEW']['Average_View_Zenith'])
                         senai = interp2d(txg, tyg, grmeta['VIEW']['Average_View_Azimuth'])
+
                 elif (data_type == 'NetCDF'):
                     input_bundle_datasets = pp.shared.nc_datasets(bundle)
                     resolved_geometry_type = None
@@ -959,7 +963,7 @@ def acolite_ac(bundle, odir,
                             ##
 
                 t1 = time.time()
-                print('Reading {} tiles took {} seconds'.format(ntiles, t1-t0))
+                print('Reading {} tiles took {:.1f} seconds'.format(ntiles, t1-t0))
 
                 ## from now on read the l1r NCDF
                 l1r_read_nc = (l1r_nc_write) and (os.path.exists(l1r_ncfile))
@@ -968,10 +972,10 @@ def acolite_ac(bundle, odir,
                 ## flipped yi,xi here, but it does not matter so much here
                 t0 = time.time()
                 print('Calculating tiled AOT map')
-                ## set up emptu tile_output
+                ## set up empty tile_output
                 tags = ['tau550', 'band', 'model']
                 tile_output = {tag: zeros(tiles)+nan for tag in tags}
-                tags = ['ratm', 'rorayl','dtott', 'utott', 'astot']
+                tags = ['ratm', 'rorayl','dtott', 'utott', 'astot', 'ttot']
                 if (sky_correction) & (sky_correction_option == 'rsky_new'): tags.append('rsky')
 
                 ## add extra ac parameters output
@@ -1026,7 +1030,7 @@ def acolite_ac(bundle, odir,
                         sel_mod_number = int(sel_mod[-1])
                         dark_name = res[sel_mod]['band_sel']
                         ret_par = {}
-                        for ap in ['romix','rorayl','dtotr','utotr','dtott', 'utott', 'astot']:
+                        for ap in ['romix','rorayl','dtotr','utotr','dtott', 'utott', 'astot', 'ttot']:
                             ret_par[ap] = {band:float(lutd[sel_mod]['rgi'][band]((pressure, lutd[sel_mod]['ipd'][ap], raa, vza, sza, tau550))) for band in rsr_bands}
                         ## end updated fitting
 
@@ -1034,7 +1038,7 @@ def acolite_ac(bundle, odir,
                         if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                             extra_ac = {}
                             for ap in lutd[luts[0]]['meta']['par']:
-                                if ap in ['ratm', 'rorayl','dtott', 'utott', 'astot']: continue
+                                if ap in ['ratm', 'rorayl','dtott', 'utott', 'astot', 'ttot']: continue
                                 extra_ac[ap] = {band:float(lutd[sel_mod]['rgi'][band]((pressure, lutd[sel_mod]['ipd'][ap],
                                                                                        raa, vza, sza, tau550))) for band in rsr_bands}
 
@@ -1045,7 +1049,7 @@ def acolite_ac(bundle, odir,
                             tile_data[band_name]['tau550'][yi,xi]=tau550#tau550_all_bands[band_dict[band_name]['lut_name']]
 
                             ## atmospheric parameters computed with lowest tau550 for this dark spectrum
-                            for ap in ['romix', 'rorayl', 'dtott', 'utott', 'astot']:
+                            for ap in ['romix', 'rorayl', 'dtott', 'utott', 'astot', 'ttot']:
                                 apo = ap
                                 if ap == 'romix': apo = 'ratm'
                                 tile_output['atm'][band_name][apo][yi,xi] = ret_par[ap][band_dict[band_name]['lut_name']]
@@ -1065,11 +1069,14 @@ def acolite_ac(bundle, odir,
                                     tile_output['atm'][band_name][ap][yi,xi] = extra_ac[ap][band_dict[band_name]['lut_name']]
 
                             ## glint in tiled mode
-                            if glint_correction:
-                                ttot_s = {band:float(lutd[sel_mod]['rgi'][band]((pressure, lutd[sel_mod]['ipd']['ttot'],
-                                                                   raa, vza, sza, tau550))) for band in rsr_bands}
-                                if 'ttot' not in tile_output['atm'][band_name]: tile_output['atm'][band_name]['ttot'] = zeros(tiles)+nan
-                                tile_output['atm'][band_name]['ttot'][yi,xi] = ttot_s[band_dict[band_name]['lut_name']]
+                            #if glint_correction:
+                            #    #ttot_s = {band:float(lutd[sel_mod]['rgi'][band]((pressure, lutd[sel_mod]['ipd']['ttot'],
+                            #    #                                   raa, vza, sza, tau550))) for band in rsr_bands}
+                            #    #print(pressure, raa, vza, sza, tau550)
+                            #    #ttot_s = {band:float(lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['ttot'], raa, vza, sza, tau550)))}
+                            #    if 'ttot' not in tile_output['atm'][band_name]: tile_output['atm'][band_name]['ttot'] = zeros(tiles)+nan
+                            #    print(band_name, tile_output['atm'][band_name]['ttot'][yi,xi])
+                            #    # tile_output['atm'][band_name]['ttot'][yi,xi] = ttot_s[band_dict[band_name]['lut_name']]
                             ## end tiled glint
 
                         ## orange band in tiled mode
@@ -1140,7 +1147,7 @@ def acolite_ac(bundle, odir,
                         tile_output['band'][yi,xi] = band_dict[dark_name]['index']
 
                 t1 = time.time()
-                print('Computing AOT for {} tiles took {} seconds'.format(ntiles, t1-t0))
+                print('Computing AOT for {} tiles took {:.1f} seconds'.format(ntiles, t1-t0))
 
                 #################
                 ## set up tile grid for interpolation of path reflectance parameters
@@ -1642,6 +1649,7 @@ def acolite_ac(bundle, odir,
                         if dsf_path_reflectance == 'fixed':
                             if resolved_angles:
                                 if data_type == 'Sentinel':
+                                    print(ac_data[btag].keys())
                                     rsky_t_cur = pp.ac.tiles_interp(ac_data[btag]['rsky_t'], tp_xnew, tp_ynew)
                                 if data_type == 'NetCDF':
                                     if resolved_geometry_type == 'average':
@@ -1819,7 +1827,7 @@ def acolite_ac(bundle, odir,
             ## end write EXP variable
             ##############################
             t1 = time.time()
-            print('Computing surface reflectances took {} seconds'.format(t1-t0))
+            print('Computing surface reflectances took {:.1f} seconds'.format(t1-t0))
 
             ##########################
             ## write BT if requested datasets
