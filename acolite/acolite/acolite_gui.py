@@ -6,6 +6,8 @@
 ##                2018-07-18 (QV) changed acolite import name
 ##                2018-09-12 (QV) updated relative path to default settings
 ##                2019-03-13 (QV) happy new year!
+##                2020-10-28 (QV) fixed some issues with restoring settings files, removed multiprocessing for darwin
+##                2020-10-29 (QV) moved multiprocessing Process out of def so it can be pickled, multiprocessing enabled for linux,darwin and win32
 
 def acolite_gui(*args, version=None):
     import os
@@ -28,32 +30,7 @@ def acolite_gui(*args, version=None):
     import acolite
     from acolite.acolite import acolite_run, settings_read, settings_write
 
-    mp_platforms = ['linux','darwin']
-
-    ## Process class that returns exceptions
-    import multiprocessing as mp
-    import traceback
-    class Process(mp.Process):
-        def __init__(self, *args, **kwargs):
-            mp.Process.__init__(self, *args, **kwargs)
-            self._pconn, self._cconn = mp.Pipe()
-            self._exception = None
-
-        def run(self):
-            try:
-                mp.Process.run(self)
-                self._cconn.send(None)
-            except Exception as e:
-                tb = traceback.format_exc()
-                self._cconn.send((e, tb))
-                raise e
-
-        @property
-        def exception(self):
-            if self._pconn.poll():
-                self._exception = self._pconn.recv()
-            return self._exception
-
+    mp_platforms = ['linux','darwin', 'win32']
 
     class acgui(tk.Tk):
         def __init__(self):
@@ -92,6 +69,7 @@ def acolite_gui(*args, version=None):
             self.output=('')
             self.processingRunning=False
             self.settings_file=''
+            self.acolite_settings = {}
 
             ## set up containers
             inputframe=tk.Frame(self, width=600, height=100, pady=3)
@@ -348,8 +326,9 @@ def acolite_gui(*args, version=None):
             if len(settings_file) > 0:
                 self.settings_file = settings_file
                 try:
-                    self.setimport = settings_read(settings_file)
-                    self.acolite_settings = self.setimport
+                    self.setimport = settings_read(self.settings_file)
+                    for k in self.setimport:
+                        self.acolite_settings[k] = self.setimport[k]
                 except:
                     print('Could not restore settings from {}'.format(settings_file))
 
@@ -359,13 +338,15 @@ def acolite_gui(*args, version=None):
                     self.nbox.delete(1.0, END)
                     self.wbox.delete(1.0, END)
                     self.ebox.delete(1.0, END)
+
                     ## set ROI if in settings file
                     if 'limit' in self.acolite_settings:
-                        if len(self.acolite_settings['limit'])==4:
-                            self.sbox.insert(1.0, self.acolite_settings['limit'][0])
-                            self.nbox.insert(1.0, self.acolite_settings['limit'][2])
-                            self.wbox.insert(1.0, self.acolite_settings['limit'][1])
-                            self.ebox.insert(1.0, self.acolite_settings['limit'][3])
+                        if self.acolite_settings['limit'] is not None:
+                            if len(self.acolite_settings['limit'])==4:
+                                self.sbox.insert(1.0, self.acolite_settings['limit'][0])
+                                self.nbox.insert(1.0, self.acolite_settings['limit'][2])
+                                self.wbox.insert(1.0, self.acolite_settings['limit'][1])
+                                self.ebox.insert(1.0, self.acolite_settings['limit'][3])
                     ## clear and set inputfile
                     self.tinput.delete(1.0, END)
                     if 'inputfile' not in self.acolite_settings: self.acolite_settings['inputfile'] = ''
@@ -378,10 +359,12 @@ def acolite_gui(*args, version=None):
 
                     ##
                     if 'l2w_parameters' in self.acolite_settings:
-                        self.tl2wpar.delete(1.0,END)
                         l2wpar=self.acolite_settings['l2w_parameters']
-                        if type(l2wpar) is list: l2wpar = ','.join(l2wpar)
-                        self.tl2wpar.insert(1.0, l2wpar)
+                        if (l2wpar is not None):
+                            if len(l2wpar)>0:
+                                self.tl2wpar.delete(1.0,END)
+                                if type(l2wpar) is list: l2wpar = ','.join(l2wpar)
+                                self.tl2wpar.insert(1.0, l2wpar)
 
                     ## restore RGB buttons
                     v = 1
@@ -399,7 +382,6 @@ def acolite_gui(*args, version=None):
 
                     ## done restoring settings
                     print('Restored settings file {}'.format(settings_file))
-                    #print(self.acolite_settings)
                 except:
                     print('Failed to restore settings.')
 
@@ -439,7 +421,7 @@ def acolite_gui(*args, version=None):
 
 
                     if self.processingRunning:
-                        print('Running ACOLITE processing')
+                        print('Running ACOLITE processing on {}'.format(sys.platform))
                         print('Logging to file {}'.format(logfile))
                         ## Running acolite directly works - but no interruption possible
                         #acolite(settings=self.acolite_settings)
@@ -448,7 +430,8 @@ def acolite_gui(*args, version=None):
                             ## stop stdout redirection - otherwise Process doesn't finish
                             ## probably a conflict between multithreading and the GUI loop or the button threading
                             ## too confusing to figure out right now
-                            print('Logging disabled in GUI window until processing is complete.')
+
+                            #print('Logging disabled in GUI window until processing is complete.')
                             self.logging.__del__()
                             self.logging = None
                             self.logging=LogTee(logfile)
@@ -462,8 +445,7 @@ def acolite_gui(*args, version=None):
                                 time.sleep(0.1)
                                 self.update()
                                 if not self.process.is_alive(): self.processingRunning=False
-                        else: # windows/mac
-                            print('Running ACOLITE processing on Mac/Windows.')
+                        else: # no interruption
                             acolite_run(settings=self.acolite_settings, gui=True)
 
 
@@ -504,7 +486,7 @@ def acolite_gui(*args, version=None):
         ## halt processing
         def stopRun(self):
             if sys.platform not in mp_platforms:
-                print('ACOLITE processing on Windows is currently not interruptible.')
+                print('ACOLITE processing on {} is currently not interruptible.'.format(sys.platform))
             else:
                 if self.processingRunning:
                     print(self.process)
@@ -567,6 +549,30 @@ def acolite_gui(*args, version=None):
     root=acgui()
     root.mainloop()
     #print('End.')
+
+## Process class that returns exceptions
+import multiprocessing as mp
+import traceback
+class Process(mp.Process):
+        def __init__(self, *args, **kwargs):
+            mp.Process.__init__(self, *args, **kwargs)
+            self._pconn, self._cconn = mp.Pipe()
+            self._exception = None
+
+        def run(self):
+            try:
+                mp.Process.run(self)
+                self._cconn.send(None)
+            except Exception as e:
+                tb = traceback.format_exc()
+                self._cconn.send((e, tb))
+                raise e
+
+        @property
+        def exception(self):
+            if self._pconn.poll():
+                self._exception = self._pconn.recv()
+            return self._exception
 
 ## start and run GUI
 if __name__ == "__main__":

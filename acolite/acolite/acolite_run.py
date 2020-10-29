@@ -26,6 +26,7 @@
 ##                     2020-03-08 (QV) added lut selection to settings file
 ##                     2020-07-15 (QV) added EarthData login also in processing settings
 ##                     2020-09-07 (QV) added single lut option
+##                     2020-10-29 (QV) removed the GUI restriction for getting ancillary data
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -61,11 +62,6 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
             setu['l8_output_bt'] = True
         if ('lt10' in setu['l2w_parameters']) or ('lt11' in setu['l2w_parameters']):
             setu['l8_output_lt_tirs'] = True
-
-    if (gui) & (setu['ancillary_data']):
-        print('Disabling ancillary data in GUI due to download bug.')
-        print('Please use the CLI for ancillary download.')
-        setu['ancillary_data'] = False
 
     ## generic override for config
     for key in config:
