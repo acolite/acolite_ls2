@@ -14,7 +14,7 @@ def rhod_select(rdark, rdark_list_selection='intercept', lowess_frac = 0.5):
     ## find out what kind of rdark is given and which selection to use
     for band in rdark.keys():
         ## given rdark is a single spectrum
-        if (type(rdark[band]) == np.float64):
+        if (type(rdark[band]) == np.float64) | (type(rdark[band]) == np.float32):
             rdark_selected[band] = rdark[band]
 
         ## given rdark is a list of spectra
