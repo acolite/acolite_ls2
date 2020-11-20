@@ -59,6 +59,11 @@
 ##                2020-07-30 (QV) more cleaning and new fitting done for tiled DSF
 ##                2020-09-15 (QV) added CAMS grib ancillary data support (when the file is provided externally)
 ##                2020-10-28 (QV) fixed issue with tiled glint correction with resolved angles (S2)
+##                2020-11-16 (QV) added garbage collection from Martin Boettcher
+##                                reordered glint correction and added valid data slicing
+##                2020-11-17 (QV) fixed reordered glint correction for non tiled processing
+##                                improved performance of tiled processing for sparse tiles with new tiles_interp and slicing
+##                2020-11-19 (QV) various fixes for slicing data and keywording of slicing option
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -193,6 +198,9 @@ def acolite_ac(bundle, odir,
                 nc_delete=False,
                 nc_compression=True,
                 chunking=True,
+
+                ## slicing for sparse mosaicked data
+                slicing=True,
 
                 ## debugging
                 verbosity=0,
@@ -841,9 +849,11 @@ def acolite_ac(bundle, odir,
                 print('Reading TOA data and performing tiling')
 
                 ## empty tile tracker
-                tile_data = {band_name:{'rdark':zeros(tiles), 'cover':zeros(tiles), 'tau550':zeros(tiles)} for band_name in ordered_bands}
+                tile_data = {band_name:{'rdark':np.zeros(tiles, dtype=np.float32),
+                                        'cover':np.zeros(tiles, dtype=np.float32),
+                                        'tau550':np.zeros(tiles, dtype=np.float32)} for band_name in ordered_bands}
                 ## tracker for geometry
-                tile_angles = {v: zeros(tiles)+nan for v in ['VAA', 'SAA', 'VZA', 'SZA']}
+                tile_angles = {v: np.zeros(tiles, dtype=np.float32)+nan for v in ['VAA', 'SAA', 'VZA', 'SZA']}
 
                 ## run through bands: (1) read, (2) write to NCDF, (3) get dark value
                 for b,band_name in enumerate(ordered_bands):
@@ -974,7 +984,7 @@ def acolite_ac(bundle, odir,
                 print('Calculating tiled AOT map')
                 ## set up empty tile_output
                 tags = ['tau550', 'band', 'model']
-                tile_output = {tag: zeros(tiles)+nan for tag in tags}
+                tile_output = {tag: np.zeros(tiles, dtype=np.float32)+np.nan for tag in tags}
                 tags = ['ratm', 'rorayl','dtott', 'utott', 'astot', 'ttot']
                 if (sky_correction) & (sky_correction_option == 'rsky_new'): tags.append('rsky')
 
@@ -982,7 +992,11 @@ def acolite_ac(bundle, odir,
                 if (extra_ac_parameters) & (dsf_write_tiled_parameters):
                     for p in lutd[luts[0]]['meta']['par']:
                         if p not in tags: tags.append(p)
-                tile_output['atm'] = {band:{tag: zeros(tiles)+nan for tag in tags} for band in ordered_bands}
+                tile_output['atm'] = {band:{tag: np.zeros(tiles, dtype=np.float32)+np.nan for tag in tags} for band in ordered_bands}
+                #if (sensor == 'L8_OLI') & (l8_output_pan | l8_output_pan_ms  | l8_output_orange):
+                #    print(tile_output['atm'].keys())
+                #    print(band_dict.keys())
+                #    tile_output['atm']['8'] = {tag: np.zeros(tiles, dtype=np.float32)+np.nan for tag in tags}
 
                 ## run through tiles
                 ntiles = tiles[0]*tiles[1]
@@ -1089,15 +1103,18 @@ def acolite_ac(bundle, odir,
                             if ob_cfg['combine'] == 'after':
                                 ## save pan band results in current tile
                                 band_name = '8'
-                                if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
+                                if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: np.zeros(tiles, dtype=np.float32)+np.nan for tag in tags}
                                 for ap in ['romix', 'rorayl', 'dtott', 'utott', 'astot']:
                                     apo = ap
                                     if ap == 'romix': apo = 'ratm'
-                                    tile_output['atm'][band_name][apo][yi,xi] = ret_par[ap][band_dict[band_name]['lut_name']]
+                                    tile_output['atm'][band_name][apo][yi,xi] = ret_par[ap][band_name]
 
                                 ## add new sky correction
                                 if (sky_correction) & (sky_correction_option == 'rsky_new'):
-                                    tile_output['atm'][band_name]['rsky'][yi,xi] = rsky_s[band_name]
+                                    #tile_output['atm'][band_name]['rsky'][yi,xi] = rsky_s[band_name]
+                                    if fit_tag == 'romix+rsky_t':
+                                        tile_output['atm'][band_name]['rsky'][yi,xi] = \
+                                            float(lutd[sel_mod]['rgi'][band_name]((pressure, lutd[sel_mod]['ipd']['rsky_t'], raa, vza, sza, tau550)))
 
                                 ## if output extra ac parameters
                                 if (extra_ac_parameters) & (dsf_write_tiled_parameters):
@@ -1119,7 +1136,7 @@ def acolite_ac(bundle, odir,
                                                                                  cur_azi, cur_thv, cur_ths,tau550)
                                 ## save orange band results in current tile
                                 band_name = 'O'
-                                if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: zeros(tiles)+nan for tag in tags}
+                                if band_name not in tile_output['atm']: tile_output['atm'][band_name] = {tag: np.zeros(tiles, dtype=np.float32)+np.nan for tag in tags}
 
                                 tile_output['atm'][band_name]['ratm'][yi,xi] = ratm_o[band_name]
                                 tile_output['atm'][band_name]['rorayl'][yi,xi] = rorayl_o[band_name]
@@ -1600,6 +1617,10 @@ def acolite_ac(bundle, odir,
                         band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, target_res=s2_target_res, sub=grids)
                 ## get nans from toa product
                 valid_mask = isfinite(band_data)
+                rhot_dims = band_data.shape
+
+                ## subset to valid data if slicing
+                if slicing: band_data = band_data[valid_mask]
 
                 ## apply gains
                 if (gains) & (band_name in gains_dict):
@@ -1610,8 +1631,15 @@ def acolite_ac(bundle, odir,
                 if nc_write_rhot:
                     ds_att['standard_name']='toa_bidirectional_reflectance'
                     ds_att['units']=1
-                    pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
-                                       attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                    if slicing: # reconstitute full dataset
+                        tmp = np.zeros(rhot_dims, dtype=np.float32)+np.nan
+                        tmp[valid_mask] = band_data
+                        pp.output.nc_write(l2r_ncfile, parname_t, tmp, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
+                                           attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                        tmp = None
+                    else:
+                        pp.output.nc_write(l2r_ncfile, parname_t, band_data, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
+                                            attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                     l2r_nc_new=False
 
                 ## skip some bands
@@ -1643,30 +1671,46 @@ def acolite_ac(bundle, odir,
                         ds_att['rsky'] = rsky[band_dict[band_name]['lut_name']]
                     if (sky_correction_option == 'rsky_new') & (aerosol_correction == 'dark_spectrum'):
                         if dsf_path_reflectance == 'tiled':
-                            rsky_t_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['rsky'], xnew, ynew)
+                            rsky_t_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['rsky'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+                            #rsky_t_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['rsky'], xnew, ynew)
                             band_data -= rsky_t_cur
                             print('tiled rsky')
                         if dsf_path_reflectance == 'fixed':
                             if resolved_angles:
                                 if data_type == 'Sentinel':
                                     print(ac_data[btag].keys())
-                                    rsky_t_cur = pp.ac.tiles_interp(ac_data[btag]['rsky_t'], tp_xnew, tp_ynew)
+                                    #rsky_t_cur = pp.ac.tiles_interp(ac_data[btag]['rsky_t'], tp_xnew, tp_ynew)
+                                    rsky_t_cur = pp.ac.tiles_interp(ac_data[btag]['rsky_t'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None))
+
                                 if data_type == 'NetCDF':
                                     if resolved_geometry_type == 'average':
+                                        #print(lutd[sel_mod]['ipd'])
+                                        #tau550_ = 1* tau550
+                                        #dtott_s_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['dtott'], raa_ave, vza_ave, sza_ave, tau550_))
+                                        #utott_s_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['utott'], raa_ave, vza_ave, sza_ave, tau550_))
+                                        #astot_s_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['astot'], raa_ave, vza_ave, sza_ave, tau550_))
+                                        #rsky_b_cur = rlutd[sel_aermod]['rgi'][band_dict[band_name]['lut_name']]((raa_ave, vza_ave, sza_ave, tau550_))
+                                        #rsky_t_cur = (utott_s_cur * dtott_s_cur * rsky_b_cur)/(1. - rsky_b_cur * astot_s_cur)
+                                        #print(band_name, band_dict[band_name]['lut_name'], dtott_s_cur.shape, utott_s_cur.shape, astot_s_cur.shape, rsky_b_cur.shape)
                                         tau550_ = 1* tau550
-                                        dtott_s_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['dtott'], raa_ave, vza_ave, sza_ave, tau550_))
-                                        utott_s_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['utott'], raa_ave, vza_ave, sza_ave, tau550_))
-                                        astot_s_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['astot'], raa_ave, vza_ave, sza_ave, tau550_))
-                                        rsky_b_cur = rlutd[sel_aermod]['rgi'][band_dict[band_name]['lut_name']]((raa_ave, vza_ave, sza_ave, tau550_))
-                                        rsky_t_cur = (utott_s_cur * dtott_s_cur * rsky_b_cur)/(1. - rsky_b_cur * astot_s_cur)
-                                        print(band_name, band_dict[band_name]['lut_name'], dtott_s_cur.shape, utott_s_cur.shape, astot_s_cur.shape, rsky_b_cur.shape)
+                                        rsky_t_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['romix+rsky_t'], raa_ave, vza_ave, sza_ave, tau550_))
+                                        print(band_name, band_dict[band_name]['lut_name'], rsky_t_cur.shape)
                                 band_data -= rsky_t_cur
                             else:
                                 band_data -= rsky_toa[band_dict[band_name]['lut_name']]
                                 ds_att['rsky'] = rsky_toa[band_dict[band_name]['lut_name']]
 
                             if (resolved_angles) & (dsf_write_tiled_parameters):
-                                pp.output.nc_write(l2r_ncfile, 'rsky_{}'.format(wave), rsky_t_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                if slicing:
+                                    tmp = np.zeros(rhot_dims, dtype=np.float32)+np.nan
+                                    tmp[valid_mask] = rsky_t_cur
+                                    print(rsky_t_cur.shape, tmp.shape)
+                                    pp.output.nc_write(l2r_ncfile, 'rsky_{}'.format(wave), tmp, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                    tmp = None
+                                else:
+                                    pp.output.nc_write(l2r_ncfile, 'rsky_{}'.format(wave), rsky_t_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                            ## gc from MB
+                            rsky_t_cur = None
 
                 ## write surface reflectance
                 if (nc_write_rhos | (nc_write_rhow)):
@@ -1677,21 +1721,29 @@ def acolite_ac(bundle, odir,
                         if dsf_path_reflectance == 'tiled':
                             print('Interpolating a/c tiles for band {}'.format(band_name))
                             ## interpolate tiles to full scene extent
-                            ratm_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ratm'], xnew, ynew)
-                            astot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['astot'], xnew, ynew)
-                            dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][band_name]['dtott']*tile_output['atm'][band_name]['utott'], xnew, ynew)
+                            #ratm_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ratm'], xnew, ynew)
+                            #astot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['astot'], xnew, ynew)
+                            #dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][band_name]['dtott']*tile_output['atm'][band_name]['utott'], xnew, ynew)
+                            ratm_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ratm'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+                            astot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['astot'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+                            dutott_cur =  pp.ac.tiles_interp(tile_output['atm'][band_name]['dtott']*tile_output['atm'][band_name]['utott'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+
                             ##
                             ## write the resolved angle grid that was used
                             ## here interpolated for the subtile centres
                             if (b == 0) & (resolved_angles_write):
-                                    tmp =  pp.ac.tiles_interp(tile_angles['VAA'], xnew, ynew)
+                                    #tmp =  pp.ac.tiles_interp(tile_angles['VAA'], xnew, ynew)
+                                    tmp =  pp.ac.tiles_interp(tile_angles['VAA'], xnew, ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                     pp.output.nc_write(l2r_ncfile, 'view_azimuth', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                     l2r_nc_new=False
-                                    tmp =  pp.ac.tiles_interp(tile_angles['SAA'], xnew, ynew)
+                                    #tmp =  pp.ac.tiles_interp(tile_angles['SAA'], xnew, ynew)
+                                    tmp =  pp.ac.tiles_interp(tile_angles['SAA'], xnew, ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                     pp.output.nc_write(l2r_ncfile, 'sun_azimuth', tmp, new=l2r_nc_new)
-                                    tmp =  pp.ac.tiles_interp(tile_angles['SZA'], xnew, ynew)
+                                    #tmp =  pp.ac.tiles_interp(tile_angles['SZA'], xnew, ynew)
+                                    tmp =  pp.ac.tiles_interp(tile_angles['SZA'], xnew, ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                     pp.output.nc_write(l2r_ncfile, 'sun_zenith', tmp, new=l2r_nc_new)
-                                    tmp =  pp.ac.tiles_interp(tile_angles['VZA'], xnew, ynew)
+                                    #tmp =  pp.ac.tiles_interp(tile_angles['VZA'], xnew, ynew)
+                                    tmp =  pp.ac.tiles_interp(tile_angles['VZA'], xnew, ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                     pp.output.nc_write(l2r_ncfile, 'view_zenith', tmp, new=l2r_nc_new)
                             ## end resolved angle grid
 
@@ -1701,22 +1753,22 @@ def acolite_ac(bundle, odir,
                                 print('Interpolating resolved angle tiles for {}'.format(band_name))
                                 if data_type == 'Sentinel':
                                     ## interpolate tiles to full scene extent
-                                    ratm_cur = pp.ac.tiles_interp(ac_data[btag]['romix'], tp_xnew, tp_ynew)
-                                    astot_cur = pp.ac.tiles_interp(ac_data[btag]['astot'], tp_xnew, tp_ynew)
+                                    ratm_cur = pp.ac.tiles_interp(ac_data[btag]['romix'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None))
+                                    astot_cur = pp.ac.tiles_interp(ac_data[btag]['astot'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None))
                                     dutott_cur =  pp.ac.tiles_interp(ac_data[btag]['dtott']*
-                                                                     ac_data[btag]['utott'], tp_xnew, tp_ynew)
+                                                                     ac_data[btag]['utott'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None))
                                     ##
                                     ## write the resolved angle grid that was used
                                     ## here according to the S2 grid spacing
                                     if (b == 0) & (resolved_angles_write):
-                                        tmp =  pp.ac.tiles_interp(grmeta['VIEW']['Average_View_Azimuth'], tp_xnew, tp_ynew)
+                                        tmp =  pp.ac.tiles_interp(grmeta['VIEW']['Average_View_Azimuth'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                         pp.output.nc_write(l2r_ncfile, 'view_azimuth', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                         l2r_nc_new=False
-                                        tmp =  pp.ac.tiles_interp(grmeta['VIEW']['Average_View_Zenith'], tp_xnew, tp_ynew)
+                                        tmp =  pp.ac.tiles_interp(grmeta['VIEW']['Average_View_Zenith'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                         pp.output.nc_write(l2r_ncfile, 'view_zenith', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                        tmp =  pp.ac.tiles_interp(grmeta['SUN']['Azimuth'], tp_xnew, tp_ynew)
+                                        tmp =  pp.ac.tiles_interp(grmeta['SUN']['Azimuth'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                         pp.output.nc_write(l2r_ncfile, 'sun_azimuth', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                        tmp =  pp.ac.tiles_interp(grmeta['SUN']['Zenith'], tp_xnew, tp_ynew)
+                                        tmp =  pp.ac.tiles_interp(grmeta['SUN']['Zenith'], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                         pp.output.nc_write(l2r_ncfile, 'sun_zenith', tmp, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                     ## end resolved angle grid
 
@@ -1744,18 +1796,36 @@ def acolite_ac(bundle, odir,
 
                         if (dsf_write_tiled_parameters):
                             if (dsf_path_reflectance == 'tiled') | ((dsf_path_reflectance == 'fixed') & resolved_angles):
-                                pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(wave), ratm_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(wave), dutott_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
-                                pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(wave), astot_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                if slicing:
+                                    tmp = np.zeros(rhot_dims, dtype=np.float32)+np.nan
+                                    tmp[valid_mask] = ratm_cur
+                                    pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(wave), tmp,
+                                                       dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                    tmp[valid_mask] = dutott_cur
+                                    pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(wave), tmp,
+                                                       dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                    tmp[valid_mask] = astot_cur
+                                    pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(wave), tmp,
+                                                       dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                    tmp = None
+                                else:
+                                    pp.output.nc_write(l2r_ncfile, 'ratm_{}'.format(wave), ratm_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                    pp.output.nc_write(l2r_ncfile, 'dutott_{}'.format(wave), dutott_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
+                                    pp.output.nc_write(l2r_ncfile, 'astot_{}'.format(wave), astot_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
 
                                 ## output extra ac parameters
                                 if extra_ac_parameters:
-                                    for ap in tile_output['atm'][band_name]:
+                                    if (dsf_path_reflectance == 'tiled'):
+                                        extra_ac_tags = tile_output['atm'][band_name].keys()
+                                    else:
+                                        extra_ac_tags = ac_data[btag].keys()
+
+                                    for ap in extra_ac_tags:
                                         if ap in ['ratm', 'astot', 'dutott']: continue
                                         if (dsf_path_reflectance == 'tiled'):
-                                            ap_cur =  pp.ac.tiles_interp(tile_output['atm'][band_name][ap], xnew, ynew)
+                                            ap_cur =  pp.ac.tiles_interp(tile_output['atm'][band_name][ap], xnew, ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                         else:
-                                            ap_cur =  pp.ac.tiles_interp(ac_data[btag][ap], tp_xnew, tp_ynew)
+                                            ap_cur =  pp.ac.tiles_interp(ac_data[btag][ap], tp_xnew, tp_ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
                                         if '+' in ap: ap = ap.replace('+', '_')
                                         pp.output.nc_write(l2r_ncfile, '{}_{}'.format(ap, wave), ap_cur, dataset_attributes={'wavelength':float(wave),'band_name':band_name}, new=l2r_nc_new, attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                                 l2r_nc_new = False
@@ -1781,7 +1851,13 @@ def acolite_ac(bundle, odir,
                     if (nc_write_rhos):
                             ds_att['standard_name']='surface_bidirectional_reflectance'
                             ds_att['units']=1
-                            rhos_data[valid_mask == 0] = nan
+                            if slicing:
+                                tmp = np.zeros(rhot_dims, dtype=np.float32)+np.nan
+                                tmp[valid_mask] = rhos_data
+                                rhos_data = tmp
+                                tmp = None
+                            else:
+                                rhos_data[valid_mask == 0] = nan
                             pp.output.nc_write(l2r_ncfile, parname_s, rhos_data, dataset_attributes=ds_att, new=l2r_nc_new, fillvalue=np.nan,
                                            attributes=attributes, nc_compression=l2r_nc_compression, chunking=chunking)
                             l2r_nc_new = False
@@ -1813,6 +1889,8 @@ def acolite_ac(bundle, odir,
             ## write rhos negatives
             pp.output.nc_write(l2r_ncfile, 'l2_negatives', l2_negatives, new=l2r_nc_new, attributes=attributes,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
+            l2_negatives = None
+            ## end write l2_negatives
 
             ##############################
             ## write EXP variable rhoam and epsilon
@@ -1826,6 +1904,7 @@ def acolite_ac(bundle, odir,
                                    nc_compression=l2r_nc_compression, chunking=chunking)
             ## end write EXP variable
             ##############################
+
             t1 = time.time()
             print('Computing surface reflectances took {:.1f} seconds'.format(t1-t0))
 
@@ -1990,17 +2069,23 @@ def acolite_ac(bundle, odir,
                         ob_ds = 'rhos_{}'
                         ptag = '8'
                         ds_att_pan = {'wavelength': float(pan_wave), 'band_name':"8",
-                                      'tt_gas':tt_gas[ptag], 'rsky':rsky_toa[ptag]}
+                                      'tt_gas':tt_gas[ptag]}#, 'rsky':rsky_toa[ptag]}
+
                         # pan band gas transmittance
                         if gas_transmittance:
                             pan_ms/=tt_gas[ptag]
+
                         # pan band sky reflectance
                         if sky_correction:
                             if sky_correction_option == 'all':
-                                pan_ms-=rsky_toa[ptag]
+                                pan_ms-=rsky[ptag]
                             if sky_correction_option == 'rsky_new':
-                                pan_ms -= rsky_toa[ptag]
-                                ds_att_pan['rsky'] =rsky_toa[ptag]
+                                if dsf_path_reflectance == 'tiled':
+                                    rsky_t_cur = pp.ac.tiles_interp(tile_output['atm'][ptag]['rsky'], xnew, ynew, target_mask=(valid_mask if slicing else None), target_mask_full=slicing)
+                                    pan_ms -= rsky_t_cur
+                                if dsf_path_reflectance == 'fixed':
+                                    pan_ms -= rsky_toa[ptag]
+                                    ds_att_pan['rsky'] =rsky_toa[ptag]
 
                         # fixed or tiled DSF to get pan band rhos
                         if dsf_path_reflectance == 'fixed':
@@ -2146,12 +2231,18 @@ def acolite_ac(bundle, odir,
             ## end write orange band
             ##############################
 
+        ## gc from MB
+        ratm_cur = None
+        astot_cur = None
+        dutott_cur = None
+
         ## end nc writing
         ####################################
 
         ####################################
         ## glint correction
         if (aerosol_correction == 'dark_spectrum') & glint_correction:
+            t0 = time.time()
             print('Starting glint correction')
 
             ## compute scattering angle
@@ -2189,6 +2280,7 @@ def acolite_ac(bundle, odir,
             gc_swir2_band = band_dict[ordered_bands[gc_swir2_idx]]['lut_name']
             gc_t_keep = [gc_swir1_band, gc_swir2_band]
 
+            gc_user_band = None
             if glint_force_band is not None:
                 gc_user_idx, gc_user_wv = pp.shared.closest_idx(gc_waves, float(glint_force_band))
                 gc_user_band = band_dict[ordered_bands[gc_user_idx]]['lut_name']
@@ -2200,26 +2292,40 @@ def acolite_ac(bundle, odir,
                     ttot = {band:float(lutd[sel_mod]['rgi'][band]((pressure, lutd[sel_mod]['ipd']['ttot'],
                                                                    raa, vza, sza, attributes['ac_aot550']))) for band in rsr_bands}
 
-            ## empty dict for glint correction
-            gc_data = {'Tu':{}, 'Td':{}, 'T':{},
-                       'Rf_USER': {}, 'gc_USER': {},
-                       'Rf_SWIR1': {}, 'Rf_SWIR2': {},
-                       'gc_SWIR1': {}, 'gc_SWIR2': {}}
 
-            ## compute glint correction factors
+            ## QV 2020-11-16
+            ## updated subsetting
+
+            ## get swir threshold for glint correction
+            gc_mask_idx, gc_mask_wave = gc_swir1_idx, gc_swir1_wv = pp.shared.closest_idx(gc_waves, glint_mask_rhos_band)
+            glint_ref_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_mask_idx])))
+
+            ## sub_gc has the idx for non masked data with rhos_ref below the masking threshold
+            sub_gc = np.where((~glint_ref_rhos.mask) & (glint_ref_rhos.data<=glint_mask_rhos_threshold))
+            glint_ref_rhos = None
+
+            ## glint mask for tile interpolation
+            if (dsf_path_reflectance == 'tiled') | (resolved_angles & (data_type == 'Sentinel')):
+                glint_mask = valid_mask * False
+                glint_mask[sub_gc] = True
+
+            ## compute T for glint correction reference bands
             for b,band_name in enumerate(ordered_bands):
                 if band_name in bands_skip_thermal: continue
                 if band_name in bands_skip_corr: continue
                 btag = band_dict[band_name]['lut_name']
 
-                ## compute Fresnel here?
-                ## currently for scene center geometry
+                if glint_force_band is not None:
+                    if btag not in [gc_user_band]: continue
+                else:
+                    if btag not in [gc_swir1_band, gc_swir2_band]: continue
 
                 ## direct up and down transmittance
                 if dsf_path_reflectance == 'fixed':
                     if resolved_angles:
                         if data_type == 'Sentinel':
-                            ttot_cur = pp.ac.tiles_interp(ac_data[btag]['ttot'], tp_xnew, tp_ynew)
+                            #ttot_cur = pp.ac.tiles_interp(ac_data[btag]['ttot'], tp_xnew, tp_ynew)[sub_gc]
+                            ttot_cur = pp.ac.tiles_interp(ac_data[btag]['ttot'], tp_xnew, tp_ynew, target_mask=glint_mask)
                         if data_type == 'NetCDF':
                             if resolved_geometry_type == 'average':
                                 tau550_ = 1* tau550
@@ -2227,65 +2333,24 @@ def acolite_ac(bundle, odir,
                     else:
                         ttot_cur = ttot[btag]
                 else: ## tiled ttot
-                    ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew)
+                    #ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew)[sub_gc]
+                    ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew, target_mask=glint_mask)
+
                 ## two way direct transmittance
-                gc_data['T'][btag]  = exp(-1.*(ttot_cur/muv)) * exp(-1.*(ttot_cur/mus))
+                T_cur  = exp(-1.*(ttot_cur/muv)) * exp(-1.*(ttot_cur/mus))
                 ttot_cur = None
 
-                ## fresnel reflectance ratio for SWIR1 and SWIR2
-                gc_data['Rf_SWIR1'][btag]  = Rf_sen[btag]/Rf_sen[gc_swir1_band]
-                gc_data['Rf_SWIR2'][btag]  = Rf_sen[btag]/Rf_sen[gc_swir2_band]
-
-                ## glint correction factor for SWIR1 and SWIR2
-                gc_data['gc_SWIR1'][btag]  = gc_data['T'][btag] * gc_data['Rf_SWIR1'][btag]
-                gc_data['gc_SWIR2'][btag]  = gc_data['T'][btag] * gc_data['Rf_SWIR2'][btag]
-
                 if glint_force_band is not None:
-                    ## do user selected band
-                    gc_data['Rf_USER'][btag]  = Rf_sen[btag]/Rf_sen[gc_user_band]
-                    gc_data['gc_USER'][btag]  = gc_data['T'][btag] * gc_data['Rf_USER'][btag]
+                    T_USER = T_cur * 1.0
+                else:
+                    if btag == gc_swir1_band:
+                        T_SWIR1 = T_cur * 1.0
+                    if btag == gc_swir2_band:
+                        T_SWIR2 = T_cur * 1.0
+                T_cur = None
 
-                ## delete transmittance data
-                if btag not in gc_t_keep: del gc_data['T'][btag]
 
-            ## normalise to reference band
-            for b,band_name in enumerate(ordered_bands):
-                if band_name in bands_skip_thermal: continue
-                if band_name in bands_skip_corr: continue
-                btag = band_dict[band_name]['lut_name']
-                gc_data['gc_SWIR1'][btag] /= gc_data['T'][gc_swir1_band]
-                gc_data['gc_SWIR2'][btag] /= gc_data['T'][gc_swir2_band]
-                if glint_force_band is not None:
-                    gc_data['gc_USER'][btag] /= gc_data['T'][gc_user_band]
-
-            ## remove remaining transmittance data
-            del gc_data['T']
-
-            ## get swir threshold for glint correction
-            gc_mask_idx, gc_mask_wave = gc_swir1_idx, gc_swir1_wv = pp.shared.closest_idx(gc_waves, glint_mask_rhos_band)
-            glint_ref_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_mask_idx])))
-            sub_nogc = where(glint_ref_rhos>glint_mask_rhos_threshold)
-            glint_ref_rhos = None
-
-            ## read in rhos
-            if glint_force_band is None:
-                swir1_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_swir1_idx])))
-                swir2_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_swir2_idx])))
-                ## estimate glint correction in the blue band
-                g1_blue = gc_data['gc_SWIR1'][band_dict[ordered_bands[0]]['lut_name']] * swir1_rhos
-                g2_blue = gc_data['gc_SWIR2'][band_dict[ordered_bands[0]]['lut_name']] * swir2_rhos
-                ## use SWIR1 or SWIR2 based glint correction
-                use_swir1 = g1_blue<g2_blue
-                rhog_ref = swir2_rhos
-                rhog_ref[use_swir1] = swir1_rhos[use_swir1]
-                swir1_rhos, swir2_rhos = None, None
-            else:
-                rhog_ref = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_user_idx])))
-
-            ## write reference glint
-            if glint_write_rhog_ref: pp.output.nc_write(l2r_ncfile, 'rhog_ref', rhog_ref, fillvalue=np.nan)
-
-            ## compute glint correction factors
+            ## compute glint correction factors and correct per band
             for b,band_name in enumerate(ordered_bands):
                 if band_name in bands_skip_thermal: continue
                 if band_name in bands_skip_corr: continue
@@ -2297,23 +2362,104 @@ def acolite_ac(bundle, odir,
 
                 ## read rhos
                 cur_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format(wave))
+
+                ## compute required parameters for this band
+                ## direct up and down transmittance
+                if (glint_force_band is None) & (btag == gc_swir1_band):
+                    T_cur = T_SWIR1 * 1.0
+                elif (glint_force_band is None) & (btag == gc_swir2_band):
+                    T_cur = T_SWIR2 * 1.0
+                elif (glint_force_band is not None) & (btag == gc_user_band):
+                    T_cur = T_USER * 1.0
+                else:
+                    print('Computing transmittance for band {}'.format(band_name))
+                    if dsf_path_reflectance == 'fixed':
+                        if resolved_angles:
+                            if data_type == 'Sentinel':
+                                #ttot_cur = pp.ac.tiles_interp(ac_data[btag]['ttot'], tp_xnew, tp_ynew)[sub_gc]
+                                ttot_cur = pp.ac.tiles_interp(ac_data[btag]['ttot'], tp_xnew, tp_ynew, target_mask=glint_mask)
+                            if data_type == 'NetCDF':
+                                if resolved_geometry_type == 'average':
+                                    tau550_ = 1* tau550
+                                    ttot_cur = lutd[sel_mod]['rgi'][band_dict[band_name]['lut_name']]((pressure, lutd[sel_mod]['ipd']['ttot'], raa_ave, vza_ave, sza_ave, tau550_))#[sub_gc]
+                        else:
+                            ttot_cur = ttot[btag]
+                    else: ## tiled ttot
+                        #ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew)[sub_gc]
+                        ttot_cur = pp.ac.tiles_interp(tile_output['atm'][band_name]['ttot'], xnew, ynew, target_mask=glint_mask)
+
+                    ## two way direct transmittance
+                    T_cur  = exp(-1.*(ttot_cur/muv)) * exp(-1.*(ttot_cur/mus))
+
+                    ttot_cur = None
+
+                if glint_force_band is None:
+                    gc_SWIR1 = (T_cur/T_SWIR1) * (Rf_sen[btag]/Rf_sen[gc_swir1_band])
+                    gc_SWIR2 = (T_cur/T_SWIR2) * (Rf_sen[btag]/Rf_sen[gc_swir2_band])
+                    #print(band_name,gc_SWIR1,gc_SWIR2)
+                else:
+                    gc_USER = (T_cur/T_USER) * (Rf_sen[btag]/Rf_sen[gc_user_band])
+                T_cur = None
+
+                ## choose SWIR band with lowest values
+                ## use blue band results
+                if wave == min(ordered_waves):
+                    ## read in rhos
+                    ## from SWIR bands
+                    if glint_force_band is None:
+                        swir1_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_swir1_idx])))[sub_gc]
+                        swir2_rhos = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_swir2_idx])))[sub_gc]
+                        ## set negatives to 0
+                        swir1_rhos[swir1_rhos<0] = 0
+                        swir2_rhos[swir2_rhos<0] = 0
+
+                        ## estimate glint correction in the blue band
+                        g1_blue = gc_SWIR1 * swir1_rhos
+                        g2_blue = gc_SWIR2 * swir2_rhos
+
+                        ## use SWIR1 or SWIR2 based glint correction
+                        use_swir1 = np.where(g1_blue<g2_blue)
+
+                        rhog_ref = swir2_rhos
+                        rhog_ref[use_swir1] = swir1_rhos[use_swir1]
+                        swir1_rhos, swir2_rhos = None, None
+                        g1_blue, g2_blue = None, None
+                    ## otherwise from user defined band
+                    else:
+                        rhog_ref = pp.shared.nc_data(l2r_ncfile, 'rhos_{}'.format('{:.0f}'.format(gc_waves[gc_user_idx])))[sub_gc]
+                        ## set negatives to 0
+                        rhog_ref[rhog_ref<0] = 0
+
+                    ## write reference glint
+                    if glint_write_rhog_ref:
+                        rhog_ref_full = np.zeros(rhot_dims, dtype=np.float32) + np.nan
+                        rhog_ref_full[sub_gc] = rhog_ref
+                        pp.output.nc_write(l2r_ncfile, 'rhog_ref', rhog_ref_full, fillvalue=np.nan)
+                        rhog_ref_full = None
+                ### end choose band for GC
+
                 ## estimate current band glint
                 if glint_force_band is None:
-                    cur_rhog = gc_data['gc_SWIR2'][btag] * rhog_ref
-                    if (dsf_path_reflectance == 'fixed') & (not resolved_angles):
-                        cur_rhog[use_swir1] = gc_data['gc_SWIR1'][btag] * rhog_ref[use_swir1]
-                    else:
-                        cur_rhog[use_swir1] = gc_data['gc_SWIR1'][btag][use_swir1] * rhog_ref[use_swir1]
+                    cur_rhog = gc_SWIR2 * rhog_ref
+                    try:
+                        cur_rhog[use_swir1] = gc_SWIR1[use_swir1] * rhog_ref[use_swir1]
+                    except:
+                        cur_rhog[use_swir1] = gc_SWIR1 * rhog_ref[use_swir1]
                 else:
-                    cur_rhog = gc_data['gc_USER'][btag] * rhog_ref
+                    cur_rhog = gc_USER * rhog_ref
 
-                cur_gcor = cur_rhos - cur_rhog
-                cur_gcor[sub_nogc] = cur_rhos[sub_nogc]
-                if glint_write_rhog_all: pp.output.nc_write(l2r_ncfile, 'rhog_{}'.format(wave), cur_rhog, fillvalue=np.nan)
+                ## write full scene glint dataset
+                if glint_write_rhog_all:
+                    cur_rhog_full = np.zeros(rhot_dims, dtype=np.float32) + np.nan
+                    cur_rhog_full[sub_gc] = cur_rhog
+                    pp.output.nc_write(l2r_ncfile, 'rhog_{}'.format(wave), cur_rhog_full, fillvalue=np.nan)
+                    cur_rhog_full = None
+
+                cur_rhos[sub_gc]-=cur_rhog
+                pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(wave), cur_rhos, fillvalue=np.nan)
                 cur_rhos, cur_rhog = None, None
-
-                pp.output.nc_write(l2r_ncfile, 'rhos_{}'.format(wave), cur_gcor, fillvalue=np.nan)
-                cur_gcor = None
+            t1 = time.time()
+            print('Glint correction took {:.1f} seconds'.format(t1-t0))
        ## end glint correction
        ####################################
 

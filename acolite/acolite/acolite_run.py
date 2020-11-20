@@ -27,6 +27,7 @@
 ##                     2020-07-15 (QV) added EarthData login also in processing settings
 ##                     2020-09-07 (QV) added single lut option
 ##                     2020-10-29 (QV) removed the GUI restriction for getting ancillary data
+##                     2020-11-19 (QV) added slicing option
 
 def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, settings=None, quiet=False, ancillary=False, gui=False):
     import os, sys
@@ -253,6 +254,9 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                                         l1r_nc_compression=setu['l1r_nc_compression'],
                                                         l2r_nc_compression=setu['l2r_nc_compression'],
                                                         l1r_nc_delete=setu['l1r_nc_delete'],
+
+                                                        ## slicing of sparse data
+                                                        slicing = setu['slicing'],
 
                                                         ## resolved angles
                                                         resolved_angles=setu['resolved_angles'],

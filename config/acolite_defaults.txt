@@ -154,3 +154,4 @@ export_geotiff_coordinates=False
 # LUTs
 luts=PONDER-LUT-201704-MOD1,PONDER-LUT-201704-MOD2
 #luts=ACOLITE-LUT-202003-MOD1,ACOLITE-LUT-202003-MOD2
+slicing=False
