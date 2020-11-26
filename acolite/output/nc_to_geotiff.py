@@ -14,7 +14,7 @@ def nc_to_geotiff(f, skip_geo=True):
     tags += ['output_dir', 'output_base', 'sensor']
 
     if all([t in gatts for t in tags]):
-        import osgeo.osr, gdal
+        from osgeo import osr, gdal
 
         xrange = gatts['xrange']
         yrange = gatts['yrange']
@@ -22,7 +22,7 @@ def nc_to_geotiff(f, skip_geo=True):
         pixel_size = gatts['pixel_size']
 
         ## make WKT
-        srs = osgeo.osr.SpatialReference()
+        srs = osr.SpatialReference()
         srs.ImportFromProj4(gatts['proj4_string'])
         wkt = srs.ExportToWkt()
 
