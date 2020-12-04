@@ -8,6 +8,7 @@
 ##                                added ALI
 ##                2019-02-28 (QV) improved support for LO8 scenes without TIRS
 ##                2019-03-26 (QV) fixed issue with time parsing
+##                2020-12-04 (QV) added support for Coll2 data - whole function could fo with a rewrite
 
 def metadata_parse(bundle):
     import dateutil.parser
@@ -20,47 +21,61 @@ def metadata_parse(bundle):
     metafile = bundle_files['MTL']['path']
     mdata = metadata_read(metafile)
 
-    metadata = {}
 
-    metadata["SATELLITE"] = mdata['PRODUCT_METADATA']['SPACECRAFT_ID'].strip('"')
-    metadata["SENSOR"] = mdata['PRODUCT_METADATA']['SENSOR_ID'].strip('"')
+    metadata = {}
+    if 'PRODUCT_METADATA' in mdata.keys():
+        attkey = 'PRODUCT_METADATA'
+    elif 'IMAGE_ATTRIBUTES' in mdata.keys():
+        attkey = 'IMAGE_ATTRIBUTES'
+
+    metadata["SATELLITE"] = mdata[attkey]['SPACECRAFT_ID'].strip('"')
+    metadata["SENSOR"] = mdata[attkey]['SENSOR_ID'].strip('"')
 
     if 'IMAGE_ATTRIBUTES' in mdata.keys():
         metadata['NEW_STYLE']=True
         metadata['AZI'] = float(mdata['IMAGE_ATTRIBUTES']['SUN_AZIMUTH'])
         metadata['THS'] = 90. - float(mdata['IMAGE_ATTRIBUTES']['SUN_ELEVATION'])
         metadata['THV'] = 0.
-        metadata['SCENE'] = mdata['METADATA_FILE_INFO']['LANDSAT_SCENE_ID']
-        if 'LANDSAT_PRODUCT_ID' in mdata['METADATA_FILE_INFO'].keys(): metadata['PRODUCT'] = mdata['METADATA_FILE_INFO']['LANDSAT_PRODUCT_ID']
+        metadata['ISODATE'] = '{}T{}Z'.format(mdata[attkey]['DATE_ACQUIRED'].strip('"'),mdata[attkey]['SCENE_CENTER_TIME'].strip('"'))
 
-        metadata['PROCESSING_DATE'] = mdata['METADATA_FILE_INFO']['FILE_DATE']
+        if 'METADATA_FILE_INFO' in mdata.keys():
+            prokey = 'METADATA_FILE_INFO'
+            metadata['PROCESSING_DATE'] = mdata[prokey]['FILE_DATE']
+            prjkey = 'PRODUCT_METADATA'
+            sclkey = 'RADIOMETRIC_RESCALING'
+        elif 'LEVEL1_PROCESSING_RECORD' in mdata.keys():
+            prokey = 'LEVEL1_PROCESSING_RECORD'
+            metadata['PROCESSING_DATE'] = mdata[prokey]['DATE_PRODUCT_GENERATED']
+            prjkey = 'PROJECTION_ATTRIBUTES'
+            sclkey = 'LEVEL1_RADIOMETRIC_RESCALING'
 
+        metadata['SCENE'] = mdata[prokey]['LANDSAT_SCENE_ID']
+        if 'LANDSAT_PRODUCT_ID' in mdata[prokey].keys():
+            metadata['PRODUCT'] = mdata[prokey]['LANDSAT_PRODUCT_ID']
 
-
-        metadata['ISODATE'] = '{}T{}Z'.format(mdata['PRODUCT_METADATA']['DATE_ACQUIRED'].strip('"'),mdata['PRODUCT_METADATA']['SCENE_CENTER_TIME'].strip('"'))
 
         ### get projection info
-        metadata["PATH"] = mdata['PRODUCT_METADATA']['WRS_PATH'].strip('"')
-        metadata["ROW"] = mdata['PRODUCT_METADATA']['WRS_ROW'].strip('"')
+        metadata["PATH"] = mdata[attkey]['WRS_PATH'].strip('"')
+        metadata["ROW"] = mdata[attkey]['WRS_ROW'].strip('"')
 
-        metadata["DIMS"] = [int(mdata['PRODUCT_METADATA']['REFLECTIVE_SAMPLES'].strip('"')),
-                            int(mdata['PRODUCT_METADATA']['REFLECTIVE_LINES'].strip('"'))]
+        metadata["DIMS"] = [int(mdata[prjkey]['REFLECTIVE_SAMPLES'].strip('"')),
+                            int(mdata[prjkey]['REFLECTIVE_LINES'].strip('"'))]
 
         tags = ['CORNER_LL_PROJECTION_X_PRODUCT', 'CORNER_LL_PROJECTION_Y_PRODUCT',
                 'CORNER_LR_PROJECTION_X_PRODUCT', 'CORNER_LR_PROJECTION_Y_PRODUCT',
                 'CORNER_UL_PROJECTION_X_PRODUCT', 'CORNER_UL_PROJECTION_Y_PRODUCT',
                 'CORNER_UR_PROJECTION_X_PRODUCT', 'CORNER_UR_PROJECTION_Y_PRODUCT']
-        for tag in tags: metadata[tag] = float(mdata['PRODUCT_METADATA'][tag])
+        for tag in tags: metadata[tag] = float(mdata[prjkey][tag])
 
         tags = ['CORNER_LL_LAT_PRODUCT', 'CORNER_LL_LON_PRODUCT',
                 'CORNER_LR_LAT_PRODUCT', 'CORNER_LR_LON_PRODUCT',
                 'CORNER_UL_LAT_PRODUCT', 'CORNER_UL_LON_PRODUCT',
                 'CORNER_UR_LAT_PRODUCT', 'CORNER_UR_LON_PRODUCT']
-        for tag in tags: metadata[tag] = float(mdata['PRODUCT_METADATA'][tag])
+        for tag in tags: metadata[tag] = float(mdata[prjkey][tag])
         ## get rescaling
         bands = set()
-        for key in mdata['RADIOMETRIC_RESCALING'].keys():
-            metadata[key] = float(mdata['RADIOMETRIC_RESCALING'][key])
+        for key in mdata[sclkey].keys():
+            metadata[key] = float(mdata[sclkey][key])
             if 'REFLECTANCE' in key: bands.add(key.split('_')[3]) ## add optical bands to list
             if 'RADIANCE' in key: bands.add(key.split('_')[3]) ## add optical bands to list
     else:
@@ -75,7 +90,7 @@ def metadata_parse(bundle):
         metadata['SCENE'] = mdata['PRODUCT_METADATA']['METADATA_L1_FILE_NAME']
 
         metadata['PROCESSING_DATE'] = mdata['METADATA_FILE_INFO']['PRODUCT_CREATION_TIME']
-        
+
         ## ALI image
         if (metadata["SATELLITE"] == 'EO1') & (metadata["SENSOR"]  == 'ALI'):
             metadata['ISODATE'] = '{}T{}Z'.format(mdata['PRODUCT_METADATA']['ACQUISITION_DATE'].replace('-','/'),mdata['PRODUCT_METADATA']['START_TIME'].split()[-1])
@@ -85,8 +100,8 @@ def metadata_parse(bundle):
             metadata["DIMS"] = [int(mdata['PRODUCT_METADATA']['PRODUCT_SAMPLES_REF'].strip('"')),
                                 int(mdata['PRODUCT_METADATA']['PRODUCT_LINES_REF'].strip('"'))]
             ## get rescaling
-            ali_bands={'BAND1':'Pan', 'BAND2':'1p', 'BAND3':'1', 'BAND4':'2', 
-               'BAND5':'3', 'BAND6':'4', 'BAND7':'4p', 'BAND8':'5p', 
+            ali_bands={'BAND1':'Pan', 'BAND2':'1p', 'BAND3':'1', 'BAND4':'2',
+               'BAND5':'3', 'BAND6':'4', 'BAND7':'4p', 'BAND8':'5p',
                'BAND9':'5', 'BAND10':'7'}
 
             bands = set()
@@ -129,8 +144,13 @@ def metadata_parse(bundle):
     metadata["TIME"] = dateutil.parser.parse(''.join([metadata["ISODATE"]]).replace("Z", ''))
     metadata["DOY"] = metadata["TIME"].strftime('%j')
     metadata["SE_DISTANCE"] = distance_se(metadata['DOY'])
-    for key in mdata['PROJECTION_PARAMETERS'].keys():
-        metadata[key] = mdata['PROJECTION_PARAMETERS'][key]
+
+    if 'PROJECTION_PARAMETERS' in mdata.keys():
+        for key in mdata['PROJECTION_PARAMETERS'].keys():
+                metadata[key] = mdata['PROJECTION_PARAMETERS'][key]
+    elif 'LEVEL1_PROJECTION_PARAMETERS' in mdata.keys():
+        for key in mdata['LEVEL1_PROJECTION_PARAMETERS'].keys():
+                metadata[key] = mdata['LEVEL1_PROJECTION_PARAMETERS'][key]
     if 'UTM_PARAMETERS' in mdata: metadata['UTM_ZONE']=mdata['UTM_PARAMETERS']['ZONE_NUMBER']
 
     ## set up bands
@@ -194,10 +214,15 @@ def metadata_parse(bundle):
     for band in f0.keys():
         metadata['B{}_F0'.format(band)] = f0[band]
 
-    ## get FILE names for bands and test if they exist in the bundle    
-    for par in mdata['PRODUCT_METADATA']:
+    ## get FILE names for bands and test if they exist in the bundle
+    if 'PRODUCT_CONTENTS' in mdata:
+        product_key = 'PRODUCT_CONTENTS'
+    elif 'PRODUCT_METADATA' in mdata:
+        product_key = 'PRODUCT_METADATA'
+
+    for par in mdata[product_key]:
         if 'FILE_NAME' in par:
-                fname = mdata['PRODUCT_METADATA'][par]
+                fname = mdata[product_key][par]
                 exists = False
                 for file in bundle_files:
                     if bundle_files[file]['fname'] == fname:
