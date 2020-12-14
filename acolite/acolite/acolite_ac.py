@@ -64,6 +64,7 @@
 ##                2020-11-17 (QV) fixed reordered glint correction for non tiled processing
 ##                                improved performance of tiled processing for sparse tiles with new tiles_interp and slicing
 ##                2020-11-19 (QV) various fixes for slicing data and keywording of slicing option
+##                2020-12-14 (QV) fix for exp options
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -1419,23 +1420,27 @@ def acolite_ac(bundle, odir,
         if aerosol_correction == 'exponential':
             l1r_read_nc = False
 
-            ## get Rayleigh reflectance and transmittance using empty band dict
-            bdict={}
-            for b,band in enumerate(ordered_bands):
-                band_name = ordered_bands[b]
-                if band in bands_skip_corr: continue
-                if band in bands_skip_thermal: continue
-                btag = '{}'.format(band_name.lstrip('B'))
-                bdict[btag]=float64(0.0)
-
             ## get Rayleigh reflectance from only 1 LUT
-            (_,rorayl,dtotr,utotr,_,_,_,_),(bands_sorted,_,_,_,_,_), (_) = pp.ac.select_model(metadata, bdict, luts=[luts[1]], pressure=pressure)
+            lutd = pp.aerlut.import_luts(base_luts=[luts[0]], sensor=sensor)
+            raa = attributes['AZI']
+            vza = attributes['THV']
+            sza = attributes['THS']
+            rorayl = {band:float(lutd[luts[0]]['rgi'][band]((pressure, lutd[luts[0]]['ipd']['rorayl'], raa, vza, sza, 0.001))) for band in rsr_bands}
+            dtotr = {band:float(lutd[luts[0]]['rgi'][band]((pressure, lutd[luts[0]]['ipd']['dtotr'], raa, vza, sza, 0.001))) for band in rsr_bands}
+            utotr = {band:float(lutd[luts[0]]['rgi'][band]((pressure, lutd[luts[0]]['ipd']['utotr'], raa, vza, sza, 0.001))) for band in rsr_bands}
 
             if metadata['SENSOR'] == 'MSI':
                 #band_indices = [int(b) for i,b in enumerate(band_names)]
                 band_indices = [int(i) for i,b in enumerate(ordered_bands)]
             else:
-                tags = list(bdict.keys())
+                #tags = list(bdict.keys())
+                tags = []
+                for b,band in enumerate(ordered_bands):
+                    band_name = ordered_bands[b]
+                    if band in bands_skip_corr: continue
+                    if band in bands_skip_thermal: continue
+                    btag = '{}'.format(band_name.lstrip('B'))
+                    tags.append(btag)
                 band_indices = [i for i,b in enumerate(ordered_bands) if b.lstrip('B') in tags]
 
             ## find SWIR bands
@@ -1454,10 +1459,10 @@ def acolite_ac(bundle, odir,
             print('Selected bands {}/{} ({}/{} nm)'.format(short_tag, long_tag, short_wave,long_wave))
 
             if data_type == 'NetCDF':
-                short_data = pp.shared.nc_data(bundle, 'rhot_{}'.format(short_wave))
-                long_data = pp.shared.nc_data(bundle, 'rhot_{}'.format(long_wave))
+                short_data = pp.shared.nc_data(bundle, 'rhot_{}'.format(short_wave)).data
+                long_data = pp.shared.nc_data(bundle, 'rhot_{}'.format(long_wave)).data
                 if (short_idx != swir1_idx) & (long_idx != swir1_idx):
-                    mask_data = pp.shared.nc_data(bundle, 'rhot_{:.0f}'.format(waves[swir1_idx]))
+                    mask_data = pp.shared.nc_data(bundle, 'rhot_{:.0f}'.format(waves[swir1_idx])).data
 
             if data_type == 'Landsat':
                 short_data = pp.landsat.get_rtoa(bundle, metadata, ordered_bands[short_idx], sub=sub)
@@ -1506,7 +1511,7 @@ def acolite_ac(bundle, odir,
 
             ## compute aerosol epsilon band ratio
             epsilon = short_data/long_data
-            epsilon[mask] = nan
+            epsilon[np.where(mask)] = nan
 
             ## red/NIR option
             if exp_option == 'red/NIR':
@@ -1876,6 +1881,7 @@ def acolite_ac(bundle, odir,
                 ## track rhos negatives
                 if l2_negatives is None:
                     l2_negatives = (rhos_data*0).astype(int32)
+
                 if wave < neg_wave:
                     l2_negatives[rhos_data < 0] = 2**1
 
