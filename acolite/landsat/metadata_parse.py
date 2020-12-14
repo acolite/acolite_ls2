@@ -9,6 +9,7 @@
 ##                2019-02-28 (QV) improved support for LO8 scenes without TIRS
 ##                2019-03-26 (QV) fixed issue with time parsing
 ##                2020-12-04 (QV) added support for Coll2 data - whole function could fo with a rewrite
+##                2020-12-14 (QV) added Coll2 thermal constants
 
 def metadata_parse(bundle):
     import dateutil.parser
@@ -53,6 +54,9 @@ def metadata_parse(bundle):
         if 'LANDSAT_PRODUCT_ID' in mdata[prokey].keys():
             metadata['PRODUCT'] = mdata[prokey]['LANDSAT_PRODUCT_ID']
 
+        if 'LEVEL1_THERMAL_CONSTANTS' in mdata:
+            for k in mdata['LEVEL1_THERMAL_CONSTANTS']:
+                metadata[k] = mdata['LEVEL1_THERMAL_CONSTANTS'][k]
 
         ### get projection info
         metadata["PATH"] = mdata[attkey]['WRS_PATH'].strip('"')
