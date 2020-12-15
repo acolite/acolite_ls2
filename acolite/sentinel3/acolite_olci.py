@@ -10,6 +10,7 @@
 ##              QV 2020-07-24 added smile correction
 ##              QV 2020-08-03 added filtering of tiled tau
 ##              QV 2020-11-23 set suggested defaults (36x36 km tiles with darkest pixel)
+##              QV 2020-12-15 added a simple (non-water) mask output
 
 def acolite_olci(bundle, output, limit=None,
                 use_tpg=False,
@@ -29,6 +30,9 @@ def acolite_olci(bundle, output, limit=None,
                 sky_correction=True, gas_transmittance=True,
                 resolved_geometry=True, write_resolved_atmosphere = False,
                 use_supplied_ancillary = True,
+
+                rhot_mask_threshold = 0.4,
+                rhot_mask_threshold_swir = 0.03,
 
                 ##
                 smile_correction = True,
@@ -300,6 +304,7 @@ def acolite_olci(bundle, output, limit=None,
     se2 = se**2
 
     ## read TOA
+    mask = None
     for iw, wave in enumerate(waves_names):
         if verbosity > 1: print('{} - Reading TOA data for {} nm'.format(datetime.datetime.now().isoformat()[0:19], wave), end='\n')
         # per pixel wavelength
@@ -323,6 +328,15 @@ def acolite_olci(bundle, output, limit=None,
         for key in ttg: ds_att[key]=ttg[key][iw]
 
         ac.output.nc_write(ofile, 'rhot_{}'.format(wave), d, dataset_attributes=ds_att)
+
+        if mask is None:
+            mask = (d > rhot_mask_threshold)
+        else:
+            mask[np.where(d > rhot_mask_threshold)] = True
+        if float(wave) > 1000.:
+            mask[np.where(d > rhot_mask_threshold_swir)] = True
+
+    ac.output.nc_write(ofile, 'mask', mask.astype(np.int32))
 
     ## clear data
     data = None
