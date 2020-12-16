@@ -334,14 +334,14 @@ def acolite_olci(bundle, output, limit=None,
         if smile_correction:
             d = (np.pi * data[dname] * se2) / (f0*mu)
         else:
-            cg = 1.0
-            if use_gains:
-                if len(gains) == 21:
-                    cg = float(gains[iw])
-                    print('Applying gain {:.5f} for {}'.format(cg, wave))
             d = (np.pi * ac.shared.nc_data(lfiles[dname], dname, sub=sub) * se2) / (f0*mu)
-            d *= cg
             
+            if use_gains:
+                cg = 1.0
+                if len(gains) == 21: cg = float(gains[iw])
+                print('Applying gain {:.5f} for {}'.format(cg, wave))
+                d *= cg
+
         ds_att  = {'wavelength':float(wave)}
         for key in ttg: ds_att[key]=ttg[key][iw]
 
