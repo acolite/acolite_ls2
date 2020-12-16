@@ -11,6 +11,7 @@
 ##              QV 2020-08-03 added filtering of tiled tau
 ##              QV 2020-11-23 set suggested defaults (36x36 km tiles with darkest pixel)
 ##              QV 2020-12-15 added a simple (non-water) mask output
+##              QV 2020-12-16 added support for user defined gains
 
 def acolite_olci(bundle, output, limit=None,
                 use_tpg=False,
@@ -37,6 +38,10 @@ def acolite_olci(bundle, output, limit=None,
                 ##
                 smile_correction = True,
                 tiled_interpolation = 'tpg',
+
+                ## allow for user specified gains
+                use_gains = False,
+                gains = [1.0]*21,
 
                 ## these are not needed?
                 use_supplied_pressure = True,
@@ -125,6 +130,13 @@ def acolite_olci(bundle, output, limit=None,
                     lfiles[ds] = file
                     if smile_correction:
                         data[ds] = ac.shared.nc_data(file, ds, sub=sub)
+                        if use_gains:
+                            cg = 1.0
+                            if len(gains) == 21:
+                                gi = int(ds[2:4])-1
+                                cg = float(gains[gi])
+                            print('Applying gain {:.5f} for {}'.format(cg, ds))
+                            data[ds]*=cg
                     continue
                 ## end skip radiance
 
@@ -322,8 +334,14 @@ def acolite_olci(bundle, output, limit=None,
         if smile_correction:
             d = (np.pi * data[dname] * se2) / (f0*mu)
         else:
+            cg = 1.0
+            if use_gains:
+                if len(gains) == 21:
+                    cg = float(gains[iw])
+                    print('Applying gain {:.5f} for {}'.format(cg, wave))
             d = (np.pi * ac.shared.nc_data(lfiles[dname], dname, sub=sub) * se2) / (f0*mu)
-
+            d *= cg
+            
         ds_att  = {'wavelength':float(wave)}
         for key in ttg: ds_att[key]=ttg[key][iw]
 
