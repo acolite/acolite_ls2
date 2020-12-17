@@ -49,3 +49,5 @@ from .read_refri import read_refri
 from .reproject2 import reproject2
 
 from .fillnan import fillnan
+from .widx import widx
+from .gauss_response import gauss_response

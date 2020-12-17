@@ -10,6 +10,7 @@ from acolite import dem
 
 from acolite import output
 from acolite import plotting
+from acolite import hyperspectral
 
 ##
 import os
