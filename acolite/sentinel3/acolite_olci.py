@@ -335,7 +335,7 @@ def acolite_olci(bundle, output, limit=None,
             d = (np.pi * data[dname] * se2) / (f0*mu)
         else:
             d = (np.pi * ac.shared.nc_data(lfiles[dname], dname, sub=sub) * se2) / (f0*mu)
-            
+
             if use_gains:
                 cg = 1.0
                 if len(gains) == 21: cg = float(gains[iw])
@@ -520,12 +520,14 @@ def acolite_olci(bundle, output, limit=None,
         if li == 0:
             sel_mod = np.zeros((nty, ntx))
             sel_tau = btau[:,:,0, li]
+            sel_band = bidx[:,:,0, li]
             sel_dif = tdiff
         else:
             tsub = np.where(tdiff<sel_dif)
             if len(tsub[0])>0:
                 sel_mod[tsub[0], tsub[1]] = li
                 sel_tau[tsub[0], tsub[1]] = btau[tsub[0], tsub[1],0, li]
+                sel_band[tsub[0], tsub[1]] = bidx[tsub[0], tsub[1], 0, li]
                 sel_dif[tsub[0], tsub[1]] = tdiff[tsub[0], tsub[1]]
 
     ## make global attributes
@@ -567,6 +569,7 @@ def acolite_olci(bundle, output, limit=None,
     ind = scipy.ndimage.distance_transform_edt(dif_tau > dif_tau_max, return_distances=False, return_indices=True)
     fil_tau = sel_tau[tuple(ind)]
     fil_mod = sel_mod[tuple(ind)]
+    fil_band = sel_band[tuple(ind)]
 
     if tiled_processing:
         ## function to nn resize an array to a given shape
@@ -609,12 +612,13 @@ def acolite_olci(bundle, output, limit=None,
     else:
         fil_mod_f = np.squeeze(fil_mod)
         fil_tau_f = np.squeeze(fil_tau)
+        fil_band_f = np.squeeze(fil_band)
 
     if ntiles == 1:
         print('Fixed tau')
         gatts['ac_aot550'] = fil_tau_f
         gatts['ac_model'] = fil_mod_f
-        #gatts['ac_band'] = fil_band_f
+        gatts['ac_band'] = fil_band_f
 
     ## make average tpg tiles
     if (tiled_processing) & (tiled_interpolation == 'tpg'):
