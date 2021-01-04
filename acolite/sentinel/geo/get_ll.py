@@ -9,6 +9,7 @@
 ##                2018-06-06 (QV) changed xy output
 ##                2018-07-18 (QV) changed acolite import name
 ##                2020-07-29 (QV) fixed one pixel offset in y
+##                2021-01-04 (QV) reinstated old pixel offset for crops - previous edit seemed to be 1/4 pixel off
 
 def get_ll(metadata, limit=None, xy=False, resolution='10', extend_limit=False):
     from numpy import linspace, tile, flipud
@@ -38,11 +39,12 @@ def get_ll(metadata, limit=None, xy=False, resolution='10', extend_limit=False):
     # testing 2018 06 06
     midpix = int(int(res)/2)
     xdim =  linspace(xrange[0]+midpix,xrange[1]-midpix,dims[0]).reshape(1,dims[0])
-    #ydim =  linspace(yrange[0]+midpix,yrange[1]-midpix,dims[1]).reshape(dims[1],1)
+    ydim =  linspace(yrange[0]+midpix,yrange[1]-midpix,dims[1]).reshape(dims[1],1)
 
     ## 2020-07-29
     ## are we one pixel off in Y?
-    ydim = linspace(yrange[0]-midpix,yrange[1]+midpix,dims[1]).reshape(dims[1],1)
+    if limit is None:
+        ydim = linspace(yrange[0]-midpix,yrange[1]+midpix,dims[1]).reshape(dims[1],1) ## quarter pixel off in Y
 
     xdim = tile(xdim, (dims[1],1))
     ydim = tile(ydim, (1,dims[0]))
