@@ -25,14 +25,15 @@
 ##                2019-04-11 (QV) added check for valid data for cropped scenes (blackfill_skip)
 ##                2019-09-11 (QV) skipping Lt in thermal channels when merging S2 tiles
 ##                2019-10-02 (QV) added test for MSI L1C files, skip processing for L2A files
+##                2021-01-04 (QV) forced double precision for lat/lon writing
 
-def acolite_toa_crop(scenes, odir, limit=None, 
+def acolite_toa_crop(scenes, odir, limit=None,
                      ## skip cropped scenes that are in the "blackfill"
                      blackfill_skip=True,
                      blackfill_max=1.0,
-                     blackfill_wave = 1600, 
-                     nc_compression=True, chunking=True, tile_code=None, s2_target_res=10, 
-                     nc_write_geo_xy = False, 
+                     blackfill_wave = 1600,
+                     nc_compression=True, chunking=True, tile_code=None, s2_target_res=10,
+                     nc_write_geo_xy = False,
                      l8_output_pan=False, l8_output_pan_ms=False, override = True):
     import acolite as pp
     from numpy import nanmean, nan
@@ -50,7 +51,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
 
     if tile_code is None:
         if len(scenes) > 1:
-            tile_code = 'MERGED' 
+            tile_code = 'MERGED'
         else:
              tile_code = 'CROP'
 
@@ -82,7 +83,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
         if data_type is None:
             print('Inputfile {} not recognised.'.format(bundle))
             return(1)
-            
+
         import os
         if os.path.exists(odir) is False: os.makedirs(odir)
 
@@ -113,12 +114,12 @@ def acolite_toa_crop(scenes, odir, limit=None,
                 else:
                     scene_extent = pp.landsat.geo.get_sub(metadata, limit)
                     if type(scene_extent) is int: out_of_scene = True
-                    else: 
+                    else:
                         sub, p, (xrange,yrange,grid_region), proj4_string = scene_extent
                         ## get "extended" xyranges
                         xrange, yrange = grid_region['xrange'], grid_region['yrange']
                     if limit is None: sub=None
-            
+
                 ## calculate view azimuth and update metadata
                 view_azi = pp.landsat.view_azimuth(bundle, metadata)
                 azi = float(metadata['AZI'])-view_azi
@@ -142,7 +143,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                 if limit is not None:
                     grids = pp.sentinel.geo.get_sub(grmeta, limit)
                     if type(grids) is int: out_of_scene = True
-                    else: 
+                    else:
                         grids, proj4_string = grids
                         sub = grids['{}'.format(s2_target_res)]['sub']
                         ## get "extended" xyranges
@@ -154,7 +155,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                     xrange = grids['{}'.format(s2_target_res)]['xrange']
                     yrange = grids['{}'.format(s2_target_res)]['yrange']
                     grids = None
-            
+
                 ## make output names
                 tile_id = grmeta['TILE_ID']
 
@@ -203,7 +204,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                 if (nbf/npx) >= float(blackfill_max):
                     print('Skipping scene as crop is {:.0f}% blackfill'.format(100*nbf/npx))
                     continue
-            
+
             ## set up new file and make lat/lon datasets
             if (bundle_id == 0) or (new):
                 attributes = {tag:metadata[tag] for tag in metadata.keys()}
@@ -217,7 +218,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
 
                 ## change attribute time to a string for writing to NetCDF
                 attributes['TIME'] = attributes['TIME'].strftime('%Y-%m-%d %H:%M:%S')
-                
+
                 ## join band names to csv
                 attributes['BANDS'] = ','.join(metadata['BANDS'])
                 attributes['BAND_NAMES'] = ','.join(metadata['BAND_NAMES'])
@@ -227,7 +228,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                     attributes['LIMIT'] = limit
                     attributes['SUB'] = sub
 
-                ## make outputfiles     
+                ## make outputfiles
                 ncfile = '{}/{}_L1.nc'.format(odir,oname)
                 if os.path.exists(ncfile) & (override == False):
                     return(ncfile)
@@ -247,11 +248,11 @@ def acolite_toa_crop(scenes, odir, limit=None,
 
                 pp.output.nc_write(ncfile, 'lon', lon, new=new, attributes=attributes,
                                     dataset_attributes={'standard_name':'longitude', 'units':'degree_east'},
-                                    nc_compression=nc_compression, chunking=chunking)
+                                    nc_compression=nc_compression, chunking=chunking, double=True)
                 new = False
-                pp.output.nc_write(ncfile, 'lat', lat, new=new, attributes=attributes, 
+                pp.output.nc_write(ncfile, 'lat', lat, new=new, attributes=attributes,
                                     dataset_attributes={'standard_name':'latitude', 'units':'degree_north'},
-                                    nc_compression=nc_compression, chunking=chunking)
+                                    nc_compression=nc_compression, chunking=chunking, double=True)
 
                 ##########################
                 ## write easting and northing datasets
@@ -261,9 +262,9 @@ def acolite_toa_crop(scenes, odir, limit=None,
                         x, y = pp.landsat.geo.get_ll(metadata, limit=limit, extend_limit=True, xy=True)
                     if data_type == 'Sentinel':
                         x, y = pp.sentinel.geo.get_ll(grmeta, limit=limit, extend_limit=True, resolution=s2_target_res, xy=True)
-                    pp.output.nc_write(ncfile, 'x', x, new=new, attributes=attributes, 
+                    pp.output.nc_write(ncfile, 'x', x, new=new, attributes=attributes,
                                         nc_compression=nc_compression, chunking=chunking)
-                    pp.output.nc_write(ncfile, 'y', y, new=new, attributes=attributes, 
+                    pp.output.nc_write(ncfile, 'y', y, new=new, attributes=attributes,
                                         nc_compression=nc_compression, chunking=chunking)
                 ## end write geo_xy
                 ##########################
@@ -305,7 +306,7 @@ def acolite_toa_crop(scenes, odir, limit=None,
                     wave = swavesl[b]
                     oname = 'rhot_{}'.format(wave)
                     band_name = metadata['BAND_NAMES'][b]
-                    
+
                     offset = grids['grids_region']['{}'.format(s2_target_res)]['off']
                     band_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], band_name, sub=grids, target_res=s2_target_res)
                     bid = str(b)

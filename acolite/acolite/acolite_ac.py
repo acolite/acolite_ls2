@@ -65,6 +65,7 @@
 ##                                improved performance of tiled processing for sparse tiles with new tiles_interp and slicing
 ##                2020-11-19 (QV) various fixes for slicing data and keywording of slicing option
 ##                2020-12-14 (QV) fix for exp options
+##                2021-01-04 (QV) forced double precision for lat/lon writing
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -1967,12 +1968,12 @@ def acolite_ac(bundle, odir,
 
                 ### write to L1R NCDF
                 if os.path.exists(l1r_ncfile) & l1r_read_nc:
-                    pp.output.nc_write(l1r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'})
-                    pp.output.nc_write(l1r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'})
+                    pp.output.nc_write(l1r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'}, double=True)
+                    pp.output.nc_write(l1r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'}, double=True)
                 ### write to L2R NCDF
                 if os.path.exists(l2r_ncfile):
-                    pp.output.nc_write(l2r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'})
-                    pp.output.nc_write(l2r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'})
+                    pp.output.nc_write(l2r_ncfile, 'lon', lon, dataset_attributes={'standard_name':'longitude', 'units':'degree_east'}, double=True)
+                    pp.output.nc_write(l2r_ncfile, 'lat', lat, dataset_attributes={'standard_name':'latitude', 'units':'degree_north'}, double=True)
                 del lon
                 del lat
             ## end write geo
