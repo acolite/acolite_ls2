@@ -11,7 +11,7 @@ def bundle_test(bundle):
     for i, fname in enumerate(files):
         split = fname.split('_')
         tmp = split[-1].split('.')
-        if len(tmp) is 2: band,ext = tmp
+        if len(tmp) == 2: band,ext = tmp
         else: continue
         if band in ['L1GST', 'L1T']: band = split[-2]
         if ext not in ['TIF', 'txt', 'TXT']: continue

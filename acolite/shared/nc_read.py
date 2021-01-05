@@ -17,10 +17,10 @@ def nc_data(file, dataset, crop=False, sub=None, attributes=False):
         if crop is False:
             data = nc.variables[dataset][:]
         else:
-            if len(crop) is 4: data = nc.variables[dataset][crop[2]:crop[3]:1,crop[0]:crop[1]:1]
+            if len(crop) == 4: data = nc.variables[dataset][crop[2]:crop[3]:1,crop[0]:crop[1]:1]
             else: data = nc.variables[dataset][:]
     else:
-        if len(sub) is 4: data = nc.variables[dataset][sub[1]:sub[1]+sub[3]:1,sub[0]:sub[0]+sub[2]:1]
+        if len(sub) == 4: data = nc.variables[dataset][sub[1]:sub[1]+sub[3]:1,sub[0]:sub[0]+sub[2]:1]
         else: data = nc.variables[dataset][:]
     if attributes:
         atts = {attr : getattr(nc.variables[dataset],attr) for attr in nc.variables[dataset].ncattrs()}

@@ -12,7 +12,7 @@ def metadata_read(metafile):
             split = line.split('=')
             for s, sp in enumerate(split):
                 split[s] = sp.strip('" ')
-            if len(split) is not 2: continue
+            if len(split) != 2: continue
             if split[0] == 'GROUP':
                 cur_group = split[1]
                 group_data = {}

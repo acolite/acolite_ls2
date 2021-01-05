@@ -36,7 +36,7 @@ def lut_get_ac_parameters_sensor(lut_sensor,meta,azi,thv,ths,rtoa, force_band=No
         ## select lowest TAU550 to avoid <0 reflectances
         ## if tau550 is equal to minimum table tau then select next band
         tau550_inlut = [i for i in tau550_all_bands if (i > min(meta['tau']))]
-        if len(tau550_inlut) is not 0: 
+        if len(tau550_inlut) > 0: 
              tau550 = min(tau550_inlut)
              ## find band to which this tau corresponds
              dark_idx = [i for i,value in enumerate(tau550_all_bands) if value == tau550][0]
@@ -48,10 +48,10 @@ def lut_get_ac_parameters_sensor(lut_sensor,meta,azi,thv,ths,rtoa, force_band=No
          if force_band not in band_order:
              print('Band {} not recognised'.format(force_band))
              return()
-         
+
          dark_idx = [i for i,band in enumerate(band_order) if band==force_band][0]
          tau550 = tau550_all_bands[dark_idx]
-    
+
     dark_band = band_order[dark_idx]
 
     ## get different parameters for this TAU550
@@ -62,6 +62,6 @@ def lut_get_ac_parameters_sensor(lut_sensor,meta,azi,thv,ths,rtoa, force_band=No
     dtott = pp.aerlut.interplut_sensor(lut_sensor, meta, azi, thv, ths, tau550, par='dtott')
     utott = pp.aerlut.interplut_sensor(lut_sensor, meta, azi, thv, ths, tau550, par='utott')
     astot = pp.aerlut.interplut_sensor(lut_sensor, meta, azi, thv, ths, tau550, par='astot')
-    
+
     #return ratm, rorayl, dtotr, utotr, dtott, utott, astot, tau550_all_bands, dark_idx, tau550_all_bands_rmsd
     return ratm, rorayl, dtotr, utotr, dtott, utott, astot, tau_dict, dark_band, tau550_all_bands_rmsd
