@@ -23,6 +23,7 @@
 ##                     2019-03-26 (QV) added some CF names
 ##                     2019-04-29 (QV) changed all unit attributes to strings
 ##                     2019-07-04 (QV) added option to write reflectances in l2w file as integerized floats
+##                     2021-01-06 (QV) updated skimage import
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
@@ -36,7 +37,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
     from acolite.acolite import l2w_required, acolite_l2w_qaa
     from acolite.output import nc_write
     import acolite as ac
-    import skimage
+    from skimage.color import rgb2lab
     from numpy import pi, nan, where, log10, isfinite, power, dstack, int32
     from numpy import mod, arctan2, nanmedian, power
 
@@ -997,7 +998,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                             else:
                                 rgb = dstack((rgb,data))
                             data = None
-                        lab = skimage.color.rgb2lab(rgb)
+                        lab = rgb2lab(rgb)
                         rgb = None
 
                         ## check FAI > 0
