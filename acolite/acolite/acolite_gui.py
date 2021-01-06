@@ -8,6 +8,32 @@
 ##                2019-03-13 (QV) happy new year!
 ##                2020-10-28 (QV) fixed some issues with restoring settings files, removed multiprocessing for darwin
 ##                2020-10-29 (QV) moved multiprocessing Process out of def so it can be pickled, multiprocessing enabled for linux,darwin and win32
+##                2021-01-05 (QV) added text colour to Buttons so the labels are visible in Mac OS Dark Mode
+
+## Process class that returns exceptions
+import multiprocessing as mp
+import traceback
+class Process(mp.Process):
+        def __init__(self, *args, **kwargs):
+            mp.Process.__init__(self, *args, **kwargs)
+            self._pconn, self._cconn = mp.Pipe()
+            self._exception = None
+
+        def run(self):
+            try:
+                mp.Process.run(self)
+                self._cconn.send(None)
+            except Exception as e:
+                tb = traceback.format_exc()
+                self._cconn.send((e, tb))
+                raise e
+
+        @property
+        def exception(self):
+            if self._pconn.poll():
+                self._exception = self._pconn.recv()
+            return self._exception
+
 
 def acolite_gui(*args, version=None):
     import os
@@ -104,7 +130,7 @@ def acolite_gui(*args, version=None):
             self.tinput.insert(END,self.inputfile)
             self.tinput.bind("<Tab>", self.focus_fw)
             self.tinput.grid(row=1, column=1)
-            binput = tk.Button(ioframe, text='Select input...', command=self.select_input)
+            binput = tk.Button(ioframe, text='Select input...', command=self.select_input, fg='Black')
             binput.grid(row=1, column=2)
 
             l = tk.Label(ioframe, text='Output:')
@@ -114,7 +140,7 @@ def acolite_gui(*args, version=None):
             self.toutput.insert(END,self.output)
             self.toutput.bind("<Tab>", self.focus_fw)
             self.toutput.grid(row=2, column=1)
-            boutput = tk.Button(ioframe, text='Select output...', command=self.select_output)
+            boutput = tk.Button(ioframe, text='Select output...', command=self.select_output, fg='Black')
             boutput.grid(row=2, column=2)
             ###
 
@@ -142,7 +168,7 @@ def acolite_gui(*args, version=None):
             self.ebox.bind("<Tab>", self.focus_fw)
             self.ebox.grid(row=1, column=3)
 
-            bclear = tk.Button(roi, text='Clear', command=self.clear_ROI)
+            bclear = tk.Button(roi, text='Clear', command=self.clear_ROI, fg='Black')
             bclear.grid(row=1, column=4)
             ###
 
@@ -185,9 +211,9 @@ def acolite_gui(*args, version=None):
             ### save and restore buttons
             l=tk.Label(saveframe, text='Save or restore settings:')
             l.grid(row=0, column=0, sticky='w')
-            bsave = tk.Button(saveframe, text='Save', command=lambda: self.save())
+            bsave = tk.Button(saveframe, text='Save', command=lambda: self.save(), fg='Black')
             bsave.grid(row=0, column=1)
-            brestore = tk.Button(saveframe, text='Restore', command=lambda: self.restore())
+            brestore = tk.Button(saveframe, text='Restore', command=lambda: self.restore(), fg='Black')
             brestore.grid(row=0, column=2)
             ###
 
@@ -197,16 +223,16 @@ def acolite_gui(*args, version=None):
             runcol = tk.Frame(runframe)
             runcol.grid(row=0, column=0)
             if sys.platform in mp_platforms:
-                brun = tk.Button(runcol, text='Run processing', width=24, command=lambda: threading.Thread(target=self.startRun).start())
+                brun = tk.Button(runcol, text='Run processing', width=24, command=lambda: threading.Thread(target=self.startRun).start(), fg='Black')
             else:
-                brun = tk.Button(runcol, text='Run processing', width=24, command=self.startRun)
+                brun = tk.Button(runcol, text='Run processing', width=24, command=self.startRun, fg='Black')
             brun.grid(row=0, column=0)
 
             if sys.platform in mp_platforms:
-                bstop = tk.Button(runcol, text='Stop processing', width=24, command=lambda: self.stopRun())
+                bstop = tk.Button(runcol, text='Stop processing', width=24, command=lambda: self.stopRun(), fg='Black')
                 bstop.grid(row=0, column=1)
 
-            bexit = tk.Button(runframe, text="Exit", width=50, command=self.stopExit)
+            bexit = tk.Button(runframe, text="Exit", width=50, command=self.stopExit, fg='Black')
             bexit.grid(row=1, column=0)
             ###
 
@@ -226,7 +252,7 @@ def acolite_gui(*args, version=None):
             ####
 
             ### copyright label
-            l = tk.Label(self, text='(c) 2014-2020 RBINS')
+            l = tk.Label(self, text='(c) 2014-2021 RBINS')
             l.grid(row=7, column=0, sticky='e')
             ###
 
@@ -550,30 +576,8 @@ def acolite_gui(*args, version=None):
     root.mainloop()
     #print('End.')
 
-## Process class that returns exceptions
-import multiprocessing as mp
-import traceback
-class Process(mp.Process):
-        def __init__(self, *args, **kwargs):
-            mp.Process.__init__(self, *args, **kwargs)
-            self._pconn, self._cconn = mp.Pipe()
-            self._exception = None
-
-        def run(self):
-            try:
-                mp.Process.run(self)
-                self._cconn.send(None)
-            except Exception as e:
-                tb = traceback.format_exc()
-                self._cconn.send((e, tb))
-                raise e
-
-        @property
-        def exception(self):
-            if self._pconn.poll():
-                self._exception = self._pconn.recv()
-            return self._exception
 
 ## start and run GUI
-if __name__ == "__main__":
-    ret = acolite_gui()
+#if __name__ == "__main__":
+#    ret = acolite_gui()
+#
