@@ -45,7 +45,7 @@ glint_write_rhog_ref=False
 glint_write_rhog_all=False
 
 ## dark spectrum fitting options
-dsf_path_reflectance=fixed
+dsf_path_reflectance=tiled
 dsf_spectrum_option=dark_list
 dsf_full_scene=False
 dsf_model_selection=min_drmsd
