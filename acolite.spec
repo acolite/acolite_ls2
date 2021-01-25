@@ -9,6 +9,7 @@ hiddenimports+=['cftime']
 hiddenimports+=['pandas._libs.tslibs.np_datetime','pandas._libs.tslibs.nattype','pandas._libs.skiplist']
 hiddenimports+=['pywt._extensions._cwt']
 hiddenimports+=['scipy.spatial.transform._rotation_groups', 'cmath']
+hiddenimports+=['pyhdf.six']
 
 a = Analysis(['launch_acolite.py'],
              #pathex=['/storage/Python/acolite'],
