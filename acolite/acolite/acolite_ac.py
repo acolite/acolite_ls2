@@ -1480,7 +1480,7 @@ def acolite_ac(bundle, odir,
                     mask_data = pp.sentinel.get_rtoa(bundle, metadata, bdata, safe_files[granule], \
                                                       ordered_bands[swir1_idx], target_res=s2_target_res, sub=grids)
             ## apply gains
-            if (gains) & (band_name in gains_dict):
+            if (gains) & (ordered_bands[short_idx] in gains_dict) & (ordered_bands[long_idx] in gains_dict):
                 short_data *= gains_dict[ordered_bands[short_idx]]
                 long_data *= gains_dict[ordered_bands[long_idx]]
                 print('Applied gain {} for band {}'.format(gains_dict[ordered_bands[short_idx]],band_names[short_idx]))
