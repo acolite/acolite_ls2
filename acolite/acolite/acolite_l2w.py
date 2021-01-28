@@ -24,6 +24,7 @@
 ##                     2019-04-29 (QV) changed all unit attributes to strings
 ##                     2019-07-04 (QV) added option to write reflectances in l2w file as integerized floats
 ##                     2021-01-06 (QV) updated skimage import
+##                     2021-01-28 (QV) hue_angle can now be computed after QAA
 
 def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_data_read=False,
                 l2w_mask=True, l2w_mask_wave=1600, l2w_mask_threshold=0.0215, l2w_mask_water_parameters=True, l2w_mask_negative_rhow=True, l2w_mask_cirrus=True, l2w_mask_cirrus_wave=1373, l2w_mask_cirrus_threshold=0.005,
@@ -1126,7 +1127,7 @@ def acolite_l2w(inputfile, output, parameters=None, output_map=False, retain_dat
                 par_attributes['reference']='Van der Woerd et al., 2018'
                 par_attributes['algorithm']=''
 
-                if not qaa_computed:
+                if True:
                     req_waves,req_waves_selected = [],[]
                     ds_waves = [w for w in rhos_waves]
 
