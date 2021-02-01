@@ -66,6 +66,7 @@
 ##                2020-11-19 (QV) various fixes for slicing data and keywording of slicing option
 ##                2020-12-14 (QV) fix for exp options
 ##                2021-01-04 (QV) forced double precision for lat/lon writing
+##                2021-02-01 (QV) fix for pan subsetting
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -2033,6 +2034,22 @@ def acolite_ac(bundle, odir,
                     if metadata['SATELLITE'] == 'LANDSAT_7': panband = 8
                     if metadata['SATELLITE'] == 'LANDSAT_8': panband = 8
                     data = pp.landsat.get_rtoa(bundle, metadata, panband, sub=sub, pan=True)
+
+                    ## fix scenes where number of pan pixels is off
+                    if sub is None:
+                        pan_ms_dims = global_dims
+                        pan_dims = global_dims[0]*2, global_dims[1]*2
+                    else:
+                        pan_ms_dims = sub[3], sub[2]
+                        pan_dims = sub[3]*2, sub[2]*2
+                    if data.shape[0] <  pan_dims[0]:
+                        data = np.vstack((data, np.zeros((pan_dims[0]-data.shape[0], data.shape[1]))))
+                    elif data.shape[0] >  pan_dims[0]:
+                        data = data[0:pan_dims[0], :]
+                    if data.shape[1] < pan_dims[1]:
+                        data = np.hstack((data, np.zeros((data.shape[0], pan_dims[1]-data.shape[1]))))
+                    elif data.shape[1] > pan_dims[1]:
+                        data = data[:, 0:pan_dims[1]]
 
                     if data is not None:
                         if l8_output_pan:
