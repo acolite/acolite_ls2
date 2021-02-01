@@ -3,7 +3,7 @@
 ##
 ## written by Quinten Vanhellemont, RBINS for the PONDER project
 ## 2017-10-17
-## modifications:
+## modifications: 2021-01-31 (QV) added 2020-05-28 limit for TOAST
 
 def ancillary_list(date):
     import os
@@ -11,18 +11,21 @@ def ancillary_list(date):
 
     year, month, day = [int(i) for i in date.split('-')]
     dtime = datetime(year, month, day)
-        
+
     isodate = dtime.strftime("%Y-%m-%d")
     year = dtime.strftime("%Y")
     jday = dtime.strftime("%j").zfill(3)
     yjd = "{}{}".format(dtime.strftime("%Y"),jday)
-    
+
     dtime_next = dtime+timedelta(days=1)
     year_next = dtime_next.strftime("%Y")
     jday_next = dtime_next.strftime("%j").zfill(3)
     yjd_next = "{}{}".format(year_next,jday_next)
 
-    file_types = ['TOAST','MET_NCEPR2_6h','MET_NCEPR2_6h_NEXT']
+    if isodate > '2020-05-27':
+        file_types = ['MET_NCEPR2_6h','MET_NCEPR2_6h_NEXT']
+    else:
+        file_types = ['TOAST','MET_NCEPR2_6h','MET_NCEPR2_6h_NEXT']
 
     #if ((int(year) == 2015) & (int(jday) >= 190)) | (int(year) > 2015):
     #    file_types = ['TOAST','O3_AURAOMI_24h','MET_NCEP_6h','MET_NCEP_6h_NEXT']
