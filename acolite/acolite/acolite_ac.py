@@ -67,6 +67,7 @@
 ##                2020-12-14 (QV) fix for exp options
 ##                2021-01-04 (QV) forced double precision for lat/lon writing
 ##                2021-02-01 (QV) fix for pan subsetting
+##                2021-02-02 (QV) fix for masked arrays in sparse NetCDF data
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -945,6 +946,10 @@ def acolite_ac(bundle, odir,
                             ## offsets for writing data to NetCDF
                             offset=[xsub[0],ysub[0]]
                             band_data = band_full[ysub[0]:ysub[0]+ysub[1], xsub[0]:xsub[0]+xsub[1]]
+                            ## fix for aot issue with masked sparse data
+                            if type(band_data) == np.ma.core.MaskedArray:
+                                band_data[band_data.mask] = np.nan
+                                band_data = band_data.data
 
                             ## get tile coverage
                             elements = band_data.shape[0]*band_data.shape[1]
