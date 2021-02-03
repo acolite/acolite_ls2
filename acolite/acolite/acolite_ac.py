@@ -68,6 +68,7 @@
 ##                2021-01-04 (QV) forced double precision for lat/lon writing
 ##                2021-02-01 (QV) fix for pan subsetting
 ##                2021-02-02 (QV) fix for masked arrays in sparse NetCDF data
+##                2021-02-03 (QV) fix for rhorc outputs in tiled dsf
 
 def acolite_ac(bundle, odir,
                 scene_name=False,
@@ -1076,6 +1077,13 @@ def acolite_ac(bundle, odir,
                                 if ap == 'romix': apo = 'ratm'
                                 tile_output['atm'][band_name][apo][yi,xi] = ret_par[ap][band_dict[band_name]['lut_name']]
 
+                            ## add ray cor option
+                            if nc_write_rhorc:
+                                for ap in ['dtotr', 'utotr']:
+                                    if ap not in tile_output['atm'][band_name]:
+                                        tile_output['atm'][band_name][ap] = np.zeros(tiles, dtype=np.float32)+np.nan
+                                    tile_output['atm'][band_name][ap][yi,xi] = ret_par[ap][band_dict[band_name]['lut_name']]
+
                             ## add new sky correction
                             if fit_tag == 'romix+rsky_t':
                                 tile_output['atm'][band_name]['rsky'][yi,xi] = \
@@ -1660,7 +1668,16 @@ def acolite_ac(bundle, odir,
                 ## write Rayleigh corrected reflectance
                 if nc_write_rhorc:
                     if aerosol_correction == 'dark_spectrum':
-                        rrc_cur = (band_data - rorayl_s[btag]) / (dtotr_s[btag]*utotr_s[btag])
+                        if dsf_path_reflectance == 'fixed':
+                            rrc_cur = (band_data - rorayl_s[btag]) / (dtotr_s[btag]*utotr_s[btag])
+                        else:
+                            rorayl_s = pp.ac.tiles_interp(tile_output['atm'][band_name]['rorayl'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+                            dtotr_s = pp.ac.tiles_interp(tile_output['atm'][band_name]['dtotr'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+                            utotr_s = pp.ac.tiles_interp(tile_output['atm'][band_name]['utotr'], xnew, ynew, target_mask=(valid_mask if slicing else None))
+                            rrc_cur = (band_data - rorayl_s) / (dtotr_s*utotr_s)
+                            rorayl_s = None
+                            dtotr_s = None
+                            utotr_s = None
                     elif aerosol_correction == 'exponential':
                         rrc_cur = (band_data - rorayl[btag]) / (dtotr[btag]*utotr[btag])
                     ds_att['standard_name']='rayleigh_corrected_reflectance'
