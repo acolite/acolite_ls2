@@ -334,7 +334,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                 if type(ret) is not list: ret = [ret]
                 l2w_files+=ret
 
-                if setu['l2r_nc_delete']: os.remove(scene)
+                if setu['l2r_nc_delete']:
+                    if os.path.exists(scene): os.remove(scene)
 
                 ## output GeoTIFF
                 if setu['l2w_export_geotiff']:
@@ -361,7 +362,8 @@ def acolite_run(inputfile=None, output=None, limit=None, merge_tiles=None, setti
                                              rgb_pan_sharpen=setu['rgb_pan_sharpen'])
 
                 if setu['l2w_nc_delete']:
-                    for f in ret: os.remove(f)
+                    for f in ret:
+                        if os.path.exists(f): os.remove(f)
     ## done
     print('Finished processing {} scene{}.'.format(nsc,'' if nsc == 1 else 's'))
     return(0)
