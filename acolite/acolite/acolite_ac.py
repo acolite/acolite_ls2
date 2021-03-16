@@ -1357,9 +1357,12 @@ def acolite_ac(bundle, odir,
                                 attributes['{}_r_sky'.format(band)] = rsky_toa[band]
                                 attributes['{}_r_sky_boa'.format(band)] = rsky_boa[band]
                         else:
-                            ## old Rayleigh only
-                            rsky_boa = rsky
-                            rsky_toa = rsky
+                            rsky_boa = None
+                            rsky_toa = None
+                            if sky_correction:
+                                ## old Rayleigh only
+                                rsky_boa = rsky
+                                rsky_toa = rsky
 
                 ## resolved angles for S2
                 if resolved_angles:
