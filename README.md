@@ -1,5 +1,7 @@
 ## About ACOLITE
-ACOLITE combines the atmospheric correction algorithms for aquatic applications of Landsat and Sentinel-2 developed at RBINS.
+ACOLITE combines the atmospheric correction algorithms for aquatic applications of Landsat and Sentinel-2 developed at RBINS. 
+
+**This repository is no longer under active maintenance, and all future development will go into the generic version: https://github.com/acolite/acolite**
 
 It allows simple and fast processing of Landsat (5/7/8) and Sentinel-2 (A/B) images for coastal and inland water applications. Features include generation of RGB images before and after atmospheric correction, atmospheric correction of water bodies and extraction of rectangular regions of interest (defined by bounding coordinates). Level 2 outputs are surface reflectance (ρs=Rrs⋅π) and derived products that can be saved as PNG maps and geolocated datasets in a NCDF (NetCDF) file. The atmospheric correction is image based and needs no external inputs.
 
